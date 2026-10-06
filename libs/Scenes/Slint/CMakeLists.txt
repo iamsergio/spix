@@ -9,6 +9,9 @@ include(CMakePackageConfigHelpers)
 #
 message(STATUS "Building Spix Slint")
 
+# stb_image_write.h, for PNG screenshots (header only, from vcpkg, or a system package which installs it in stb/)
+find_path(STB_INCLUDE_DIR stb_image_write.h PATH_SUFFIXES stb REQUIRED)
+
 #
 # Sources
 #
@@ -17,7 +20,14 @@ set(HEADERS_PUB ${HEADERS_PUB_ROOT})
 
 set(SOURCES
     ${HEADERS_PUB}
-    src/SlintBuildCheck.cpp
+    src/SlintBot.cpp
+    src/SlintEvents.cpp
+    src/SlintEvents.h
+    src/SlintHooks.h
+    src/SlintItem.cpp
+    src/SlintItem.h
+    src/SlintScene.cpp
+    src/SlintScene.h
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX source FILES ${SOURCES})
@@ -33,6 +43,7 @@ target_include_directories(SpixSlint
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE
         src
+        ${STB_INCLUDE_DIR}
 )
 target_link_libraries(SpixSlint
     PUBLIC
