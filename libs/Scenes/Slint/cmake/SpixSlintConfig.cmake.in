@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(SpixCore)
+find_dependency(Slint)
+
+include("${CMAKE_CURRENT_LIST_DIR}/SpixSlintTargets.cmake")
+
+# Create the expected alias target
+if(TARGET Spix::SpixSlint AND NOT TARGET Spix::Slint)
+    add_library(Spix::Slint ALIAS Spix::SpixSlint)
+endif()
+
+check_required_components(SpixSlint)

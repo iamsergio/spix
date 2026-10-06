@@ -9,3 +9,7 @@ endif()
 if(SPIX_BUILD_QTWIDGETS)
     add_subdirectory(Scenes/QtWidgets)
 endif()
+
+if(SPIX_BUILD_SLINT)
+    add_subdirectory(Scenes/Slint)
+endif()
