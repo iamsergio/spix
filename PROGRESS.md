@@ -40,10 +40,10 @@ Agents working on this: tick steps as you finish them, and add anything worth kn
 - [x] `examples/slint/GTest`: port of `examples/qtquick/GTest`, registered with ctest
 
 ### Phase 3: unit tests (`libs/Scenes/Slint/tests/`)
-- [ ] Path lookup: by `accessible-id`, nesting, ids in repeaters, hidden elements
-- [ ] Property mapping
-- [ ] Clicks reaching a `TouchArea`, key input into a `LineEdit`
-- [ ] Screenshot of an element
+- [x] Path lookup: by `accessible-id`, nesting, ids in repeaters, hidden elements
+- [x] Property mapping
+- [x] Clicks reaching a `TouchArea`, key input into a `LineEdit`
+- [x] Screenshot of an element
 
 ### Phase 4: CI
 - [ ] CI job building with `SPIX_BUILD_SLINT=ON` and running the Slint tests and examples. Checkout with `submodules: recursive`, Rust toolchain installed, cargo build cache
@@ -78,3 +78,6 @@ Open questions, limitations and things worth revisiting. Append here when you fi
 - **`GTest` port drops the property-selector clicks** (`.propertyWithTarget`, `.propertyWithParent`), see the unsupported `.property` selectors above.
 - **`enable_testing()` moved** before `add_subdirectory(examples)` in the top-level CMake, otherwise examples can't register ctest tests.
 - **Shared test timing:** `BasicTests` waits 100 ms between clicks instead of the 500 ms the Qt example used, to keep ctest fast.
+- **Slint's element search doesn't visit the window's own element.** The first visited element is the window's first child. A window path therefore has no `ElementHandle`: `SlintItem` takes size and position from the window, supports only `width`/`height`/`x`/`y`/`visible` plus registered getters, and calls registered handlers with the window's first element. Found by the Phase 3 tests (Phase 1 had treated the first element as the root).
+- **Phase 3 coverage** (`SpixSlintTests`, 27 tests, run headless): lookup, nesting, repeaters, hidden, `#Type`, `(prop=value)`, unsupported `.property`, property mapping, setters, built-in methods, hooks, clicks with buttons/modifiers, key input, screenshots. Not covered: `mouseBeginDrag`/`mouseEndDrag`, popups, `PopupWindow` contents (still unknown).
+- Warnings from the scene are de-duplicated, since a lookup tests every element.
