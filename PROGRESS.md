@@ -24,15 +24,15 @@ Agents working on this: tick steps as you finish them, and add anything worth kn
 - [x] Check whether `SLINT_FEATURE_MCP=ON` makes `SLINT_BACKEND=headless` available. Decide how CI runs without a display (`headless` or `xvfb-run`)
 
 ### Phase 1: `Spix::Slint` library
-- [ ] `SlintBot`: `addWindow(name, ComponentHandle<T>)` (type-erased), `runTestServer()`, `slint::Timer` every 10 ms calling `CommandExecuter::processCommands()`
-- [ ] Test-helper hooks on `SlintBot`: property getters/setters and method handlers for names Slint can't resolve itself
-- [ ] `SlintScene::itemAtPath`: window by registered name, path names matched against `accessible-id`, nesting checked by geometry (each match inside the previous one's rect), first match in tree order wins
-- [ ] Path selectors: `#Type` via `type_name()`/`bases()`, `"text"` value and `(prop=value)` via the property mapping. `.property` unsupported (report an error)
-- [ ] `SlintItem`: `size()`, `position()` (window position + `absolute_position()`, matching Qt's screen coordinates), `bounds()`, `visible()`
-- [ ] `SlintItem::stringProperty`: `text`, `checked`, `enabled`, `value`, `description`, `count`, `x`/`y`/`width`/`height`, raw `accessible.<name>`, then the registered getters
-- [ ] `SlintItem::setStringProperty` (`text`/`value` via `set_accessible_value`, `checked` via default action) and `invokeMethod` (`click`, `increment`, `decrement`, `expand`, then registered handlers)
-- [ ] `SlintEvents`: mouse move/press/release, button mapping, modifiers as key presses around the click, Spix `KeyCodes` → `slint::platform::key_codes`, `stringInput`, `quit()`. `extMouseDrop` reports unsupported
-- [ ] Screenshots: `take_snapshot()`, crop to the element using the scale factor, PNG via stb, base64
+- [x] `SlintBot`: `addWindow(name, ComponentHandle<T>)` (type-erased), `runTestServer()`, `slint::Timer` every 10 ms calling `CommandExecuter::processCommands()`
+- [x] Test-helper hooks on `SlintBot`: property getters/setters and method handlers for names Slint can't resolve itself
+- [x] `SlintScene::itemAtPath`: window by registered name, path names matched against `accessible-id`, nesting checked by geometry (each match inside the previous one's rect), first match in tree order wins
+- [x] Path selectors: `#Type` via `type_name()`/`bases()`, `"text"` value and `(prop=value)` via the property mapping. `.property` unsupported (report an error)
+- [x] `SlintItem`: `size()`, `position()` (window position + `absolute_position()`, matching Qt's screen coordinates), `bounds()`, `visible()`
+- [x] `SlintItem::stringProperty`: `text`, `checked`, `enabled`, `value`, `description`, `count`, `x`/`y`/`width`/`height`, raw `accessible.<name>`, then the registered getters
+- [x] `SlintItem::setStringProperty` (`text`/`value` via `set_accessible_value`, `checked` via default action) and `invokeMethod` (`click`, `increment`, `decrement`, `expand`, then registered handlers)
+- [x] `SlintEvents`: mouse move/press/release, button mapping, modifiers as key presses around the click, Spix `KeyCodes` → `slint::platform::key_codes`, `stringInput`, `quit()`. `extMouseDrop` reports unsupported
+- [x] Screenshots: `take_snapshot()`, crop to the element using the scale factor, PNG via stb, base64
 
 ### Phase 2: examples (`examples/slint/`)
 - [ ] Move the `examples/qtquick/Basic` test body to `examples/shared/BasicTests.h`. The Qt example still passes
@@ -69,3 +69,8 @@ Open questions, limitations and things worth revisiting. Append here when you fi
 - **Submodule is dissociated.** `git submodule add --reference` leaves `objects/info/alternates` pointing at the reference clone, which breaks if that clone moves. After adding, `git repack -a -d` plus removing the alternates file made it standalone (102 MB in `.git/modules/3rdparty/slint`; fsck is clean). `scripts/build_slint.sh` does no git operations and expects the submodules to be checked out.
 - **Build times** (32 cores, Debug): clean `scripts/build_slint.sh` about 27 s wall (about 6 min CPU), incl. cargo build of Slint. CI runners will be much slower, so cache cargo.
 - **`SLINT_BACKEND=testing` from C++.** Upstream, the testing backend is only reachable through `i-slint-backend-selector`'s `backend-testing` feature, which enables `i-slint-backend-testing/internal` (meant for Slint's own tests). `api/cpp/Cargo.toml` and `SlintFeatures.cmake` don't forward it, so exposing it is a few lines. Not useful for Spix: it renders nothing and measures text with a fixed font size, so geometry differs from the real app. A more useful upstream change would be decoupling the `headless` backend from the `mcp` feature (today `cfg(all(feature = "mcp", supports_headless))` in `internal/backends/selector/lib.rs`), but enabling MCP costs little, so it's low priority.
+- **`slint-testing.h` has no include guard** (no `#pragma once`), so including it twice in one translation unit fails with "redefinition of ElementHandle". `Spix/SlintBot.h` includes it, so Spix's own headers include `SlintBot.h` rather than the Slint header directly. Users must not include both in one file unless they only get it through `SlintBot.h`. Worth an upstream one-line fix.
+- **Phase 1 verification** was a throwaway program (not committed, Phase 3 adds real tests) under `SLINT_BACKEND=headless`: path lookup by `accessible-id`, `#Type`, `"text"` selectors, click (left/right) through a `TouchArea`, `inputText` with a non-ASCII string, `enterKey` with Shift, `setStringProperty` on `text` and `checked`, `existsAndVisible` false for `visible: false`, and a cropped PNG screenshot all behaved as expected. Not yet exercised: modifier+click, `(prop=value)` selectors, nested paths, repeaters, test-helper hooks, `mouseBeginDrag/EndDrag`.
+- **`x`/`y` are window coordinates.** Qt reports them relative to the parent. Without parent navigation we only know the absolute position.
+- **`text` mapping:** `accessible-value` if the element has one (text inputs), else `accessible-label` (Text, Button). A Slint element must set `accessible-label` (or have it default from its `text`) to be found by a `"text"` selector.
+- **`SlintBot` keeps a strong reference to each added component** until `removeWindow()`.
