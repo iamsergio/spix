@@ -1,0 +1,63 @@
+name: Slint
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: slint ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      # Only the Slint submodule is needed. 3rdparty/vcpkg isn't used in CI, dependencies come from ci/install-deps.sh.
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Check out Slint
+        id: slint
+        run: |
+          git submodule update --init --depth 1 3rdparty/slint
+          echo "commit=$(git rev-parse HEAD:3rdparty/slint)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        # stb is for the screenshots, the rest is what Slint's default (winit) backend needs to build
+        run: >
+          sudo apt-get update && sudo apt-get install -y ninja-build libstb-dev
+          libfontconfig-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            build/cargo
+          # the Slint commit decides which crates are needed
+          key: cargo-${{ runner.os }}-${{ steps.slint.outputs.commit }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Install dependencies
+        env:
+          CI_BUILD_TYPE: Debug
+          SHARED_LIBS: 'OFF'
+        run: sh ./ci/install-deps.sh
+
+      - name: Configure
+        # No Qt here. SLINT_FEATURE_MCP makes SLINT_BACKEND=headless available, so no X server is needed.
+        run: >
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          -DSPIX_BUILD_TESTS=ON -DSPIX_BUILD_EXAMPLES=ON -DSPIX_BUILD_QTQUICK=OFF
+          -DSPIX_BUILD_SLINT=ON -DSLINT_FEATURE_MCP=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run tests and examples
+        # The Slint tests and examples set SLINT_BACKEND=headless themselves
+        run: ctest --test-dir build --output-on-failure -VV
