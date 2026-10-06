@@ -7,3 +7,7 @@ endif()
 if(SPIX_BUILD_QTWIDGETS)
     add_subdirectory(qtwidgets)
 endif()
+
+if(SPIX_BUILD_SLINT)
+    add_subdirectory(slint)
+endif()

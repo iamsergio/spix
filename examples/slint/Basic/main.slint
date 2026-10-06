@@ -1,0 +1,94 @@
+// Same UI as examples/qtquick/Basic.
+
+component ExampleButton inherits Rectangle {
+    in property <string> text;
+    callback activated(string /* what happened */);
+
+    accessible-role: button;
+    accessible-label: root.text;
+    background: #444444;
+    border-radius: 4px;
+    min-width: 100px;
+    min-height: 36px;
+
+    Text {
+        text: root.text;
+        color: white;
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            if (event.kind != PointerEventKind.up) {
+                return;
+            }
+            if (event.button == PointerEventButton.left) {
+                if (event.modifiers.shift && event.modifiers.control) {
+                    root.activated("shift control clicked");
+                } else if (event.modifiers.shift) {
+                    root.activated("shift clicked");
+                } else if (event.modifiers.control) {
+                    root.activated("control clicked");
+                } else {
+                    root.activated("clicked");
+                }
+            } else if (event.button == PointerEventButton.right) {
+                root.activated("right clicked");
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Spix Example";
+    width: 640px;
+    height: 480px;
+    background: #111111;
+
+    property <string> results;
+
+    function append(line: string) {
+        root.results = root.results == "" ? line : root.results + "\n" + line;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        y: 5px;
+        x: 5px;
+        height: 36px;
+        spacing: 5px;
+
+        ExampleButton {
+            accessible-id: "Button_1";
+            text: "Press Me";
+            activated(what) => { root.append("Button 1 " + what); }
+        }
+        ExampleButton {
+            accessible-id: "Button_2";
+            text: "Or Click Me";
+            activated(what) => { root.append("Button 2 " + what); }
+        }
+    }
+
+    Rectangle {
+        y: parent.height / 2;
+        height: parent.height / 2;
+        background: #222222;
+
+        Text {
+            x: 2px;
+            y: 5px;
+            text: "Result: ";
+            color: white;
+            font-weight: 700;
+        }
+
+        Text {
+            accessible-role: text;
+            accessible-id: "results";
+            x: 2px;
+            y: 30px;
+            text: root.results;
+            color: white;
+        }
+    }
+}
