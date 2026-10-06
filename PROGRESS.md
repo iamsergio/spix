@@ -35,9 +35,9 @@ Agents working on this: tick steps as you finish them, and add anything worth kn
 - [x] Screenshots: `take_snapshot()`, crop to the element using the scale factor, PNG via stb, base64
 
 ### Phase 2: examples (`examples/slint/`)
-- [ ] Move the `examples/qtquick/Basic` test body to `examples/shared/BasicTests.h`. The Qt example still passes
-- [ ] `examples/slint/Basic`: same UI (`Button_1`, `Button_2` with left/right click, `results` text), using the shared test
-- [ ] `examples/slint/GTest`: port of `examples/qtquick/GTest`, registered with ctest
+- [x] Move the `examples/qtquick/Basic` test body to `examples/shared/BasicTests.h`. The Qt example still passes
+- [x] `examples/slint/Basic`: same UI (`Button_1`, `Button_2` with left/right click, `results` text), using the shared test
+- [x] `examples/slint/GTest`: port of `examples/qtquick/GTest`, registered with ctest
 
 ### Phase 3: unit tests (`libs/Scenes/Slint/tests/`)
 - [ ] Path lookup: by `accessible-id`, nesting, ids in repeaters, hidden elements
@@ -74,3 +74,7 @@ Open questions, limitations and things worth revisiting. Append here when you fi
 - **`x`/`y` are window coordinates.** Qt reports them relative to the parent. Without parent navigation we only know the absolute position.
 - **`text` mapping:** `accessible-value` if the element has one (text inputs), else `accessible-label` (Text, Button). A Slint element must set `accessible-label` (or have it default from its `text`) to be found by a `"text"` selector.
 - **`SlintBot` keeps a strong reference to each added component** until `removeWindow()`.
+- **Phase 2 verification:** the shared `BasicTests` body gives identical results on the Qt Basic example (run with `QT_QPA_PLATFORM=offscreen`) and the Slint one. `SpixSlintBasicExample` and `SpixSlintGTestExample` are registered with ctest (run with `SLINT_BACKEND=headless`) and pass. The Slint Basic UI also has the shift/control click variants, so the GTest example reuses its `main.slint`.
+- **`GTest` port drops the property-selector clicks** (`.propertyWithTarget`, `.propertyWithParent`), see the unsupported `.property` selectors above.
+- **`enable_testing()` moved** before `add_subdirectory(examples)` in the top-level CMake, otherwise examples can't register ctest tests.
+- **Shared test timing:** `BasicTests` waits 100 ms between clicks instead of the 500 ms the Qt example used, to keep ctest fast.
