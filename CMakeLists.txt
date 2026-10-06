@@ -40,12 +40,16 @@ endif()
 
 add_subdirectory(libs)
 
+# before the examples, some of them register ctest tests
+if(SPIX_BUILD_TESTS)
+    enable_testing()
+endif()
+
 if(SPIX_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
 if(SPIX_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(libs/Core/tests)
     if(SPIX_BUILD_QTQUICK)
         add_subdirectory(libs/Scenes/QtQuick/tests)
