@@ -57,6 +57,9 @@ if(SPIX_BUILD_TESTS)
     if(SPIX_BUILD_QTWIDGETS)
         add_subdirectory(libs/Scenes/QtWidgets/tests)
     endif()
+    if(SPIX_BUILD_SLINT)
+        add_subdirectory(libs/Scenes/Slint/tests)
+    endif()
 endif()
 
 #
