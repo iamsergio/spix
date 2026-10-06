@@ -22,6 +22,14 @@
       ]
     },
     {
+      "name": "dev-slint",
+      "cacheVariables": {
+        "SPIX_BUILD_SLINT": "ON",
+        "SLINT_FEATURE_MCP": "ON"
+      },
+      "inherits": ["dev"]
+    },
+    {
       "name": "dev-clang",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
