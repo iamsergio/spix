@@ -8,4 +8,5 @@ find_package(Qt${SPIX_QT_MAJOR} COMPONENTS Core Quick REQUIRED)
 
 add_executable(SpixBasicExample "main.cpp" "qml.qrc")
 target_compile_definitions(SpixBasicExample PRIVATE $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:QT_QML_DEBUG>)
+target_include_directories(SpixBasicExample PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../shared)
 target_link_libraries(SpixBasicExample PRIVATE Qt${SPIX_QT_MAJOR}::Core Qt${SPIX_QT_MAJOR}::Quick Spix::QtQuick)

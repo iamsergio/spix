@@ -9,31 +9,7 @@
 #include <Spix/Events/Identifiers.h>
 #include <Spix/QtQmlBot.h>
 
-#include <iostream>
-
-class MyTests : public spix::TestServer {
-protected:
-    void executeTest() override
-    {
-        mouseClick(spix::ItemPath("mainWindow/Button_1"));
-        wait(std::chrono::milliseconds(500));
-        mouseClick(spix::ItemPath("mainWindow/Button_2"));
-        wait(std::chrono::milliseconds(500));
-        mouseClick(spix::ItemPath("mainWindow/Button_2"));
-        wait(std::chrono::milliseconds(500));
-        mouseClick(spix::ItemPath("mainWindow/Button_1"));
-        wait(std::chrono::milliseconds(500));
-        mouseClick(spix::ItemPath("mainWindow/Button_2"));
-        wait(std::chrono::milliseconds(500));
-        mouseClick(spix::ItemPath("mainWindow/Button_1"));
-        wait(std::chrono::milliseconds(500));
-        mouseClick(spix::ItemPath("mainWindow/Button_1"), spix::MouseButtons::Right);
-        wait(std::chrono::milliseconds(500));
-
-        auto result = getStringProperty("mainWindow/results", "text");
-        std::cout << "-------\nResult:\n-------\n" << result << "\n-------" << std::endl;
-    }
-};
+#include <BasicTests.h>
 
 int main(int argc, char* argv[])
 {
@@ -45,7 +21,7 @@ int main(int argc, char* argv[])
         return -1;
 
     // Instantiate and run tests
-    MyTests tests;
+    BasicTests tests;
     auto bot = new spix::QtQmlBot();
     bot->runTestServer(tests);
 
