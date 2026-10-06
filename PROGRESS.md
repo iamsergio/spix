@@ -46,7 +46,7 @@ Agents working on this: tick steps as you finish them, and add anything worth kn
 - [x] Screenshot of an element
 
 ### Phase 4: CI
-- [ ] CI job building with `SPIX_BUILD_SLINT=ON` and running the Slint tests and examples. Checkout with `submodules: recursive`, Rust toolchain installed, cargo build cache
+- [x] CI job building with `SPIX_BUILD_SLINT=ON` and running the Slint tests and examples. Checkout with `submodules: recursive`, Rust toolchain installed, cargo build cache
 
 # Findings and for later
 
