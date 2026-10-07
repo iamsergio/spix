@@ -6,22 +6,35 @@ on:
     branches: ['main']
   workflow_dispatch:
 
+env:
+  SLINT_VERSION: v1.18.0
+
 jobs:
   build:
     name: slint ubuntu
     runs-on: ubuntu-latest
     steps:
-      # Only the Slint submodule is needed. 3rdparty/vcpkg isn't used in CI, dependencies come from ci/install-deps.sh.
+      # 3rdparty/vcpkg isn't used in CI, dependencies come from ci/install-deps.sh.
       - name: Check out repository code
         uses: actions/checkout@v4
 
       - name: Check out Slint
-        id: slint
-        run: |
-          git submodule update --init --depth 1 3rdparty/slint
-          echo "commit=$(git rev-parse HEAD:3rdparty/slint)" >> "$GITHUB_OUTPUT"
+        uses: actions/checkout@v4
+        with:
+          repository: slint-ui/slint
+          ref: ${{ env.SLINT_VERSION }}
+          path: slint-src
+
+      - name: Cache Slint
+        id: slint-cache
+        uses: actions/cache@v4
+        with:
+          path: slint-install
+          # rebuild when the version or the features below change
+          key: slint-${{ runner.os }}-${{ env.SLINT_VERSION }}-${{ hashFiles('.github/workflows/slint.yml') }}
 
       - name: Install Rust
+        if: steps.slint-cache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
@@ -30,17 +43,18 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ninja-build libstb-dev
           libfontconfig-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            build/cargo
-          # the Slint commit decides which crates are needed
-          key: cargo-${{ runner.os }}-${{ steps.slint.outputs.commit }}
-          restore-keys: |
-            cargo-${{ runner.os }}-
+      - name: Build Slint
+        if: steps.slint-cache.outputs.cache-hit != 'true'
+        # EXPERIMENTAL, TESTING and SYSTEM_TESTING are required by Spix::Slint.
+        # MCP makes SLINT_BACKEND=headless available, so no X server is needed.
+        run: |
+          cmake -S slint-src/api/cpp -B build-slint -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/slint-install" \
+            -DSLINT_FEATURE_EXPERIMENTAL=ON -DSLINT_FEATURE_TESTING=ON -DSLINT_FEATURE_SYSTEM_TESTING=ON \
+            -DSLINT_FEATURE_MCP=ON -DSLINT_FEATURE_INTERPRETER=OFF -DSLINT_FEATURE_SYSTEM_TRAY=OFF \
+            -DSLINT_FEATURE_GETTEXT=OFF
+          cmake --build build-slint
+          cmake --install build-slint
 
       - name: Install dependencies
         env:
@@ -49,11 +63,11 @@ jobs:
         run: sh ./ci/install-deps.sh
 
       - name: Configure
-        # No Qt here. SLINT_FEATURE_MCP makes SLINT_BACKEND=headless available, so no X server is needed.
+        # No Qt here
         run: >
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           -DSPIX_BUILD_TESTS=ON -DSPIX_BUILD_EXAMPLES=ON -DSPIX_BUILD_QTQUICK=OFF
-          -DSPIX_BUILD_SLINT=ON -DSLINT_FEATURE_MCP=ON
+          -DSPIX_BUILD_SLINT=ON -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/slint-install"
 
       - name: Build
         run: cmake --build build

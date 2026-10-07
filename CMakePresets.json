@@ -25,7 +25,7 @@
       "name": "dev-slint",
       "cacheVariables": {
         "SPIX_BUILD_SLINT": "ON",
-        "SLINT_FEATURE_MCP": "ON"
+        "CMAKE_PREFIX_PATH": "${sourceDir}/build-slint/install"
       },
       "inherits": ["dev"]
     },
