@@ -4,7 +4,7 @@ project(Spix LANGUAGES CXX)
 option(SPIX_BUILD_EXAMPLES "Build Spix examples." ON)
 option(SPIX_BUILD_TESTS "Build Spix unit tests." OFF)
 option(SPIX_BUILD_QTQUICK "Build the QtQuick scene library." ON)
-option(SPIX_BUILD_SLINT "Build the Slint scene library (builds Slint from 3rdparty/slint with Rust/cargo)." OFF)
+option(SPIX_BUILD_SLINT "Build the Slint scene library (needs Slint built with the experimental and testing features)." OFF)
 option(SPIX_BUILD_QTWIDGETS "Build the QtWidgets scene library." OFF)
 set(SPIX_QT_MAJOR "6" CACHE STRING "Major Qt version to build Spix against")
 
@@ -16,26 +16,24 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 if(SPIX_BUILD_SLINT)
-    # slint-testing.h needs the experimental + testing features, so Slint is built from source.
-    set(SLINT_FEATURE_EXPERIMENTAL ON CACHE BOOL "Required by Spix::Slint" FORCE)
-    set(SLINT_FEATURE_TESTING ON CACHE BOOL "Required by Spix::Slint" FORCE)
-    # ElementHandle needs debug info in the compiled .slint code. slint_target_sources() only
-    # emits it when SYSTEM_TESTING is on (inert unless SLINT_TEST_SERVER is set at runtime).
-    set(SLINT_FEATURE_SYSTEM_TESTING ON CACHE BOOL "Required by Spix::Slint" FORCE)
-    # Not needed by Spix, skipping them shortens the Slint build.
-    set(SLINT_FEATURE_INTERPRETER OFF CACHE BOOL "Not needed by Spix")
-    set(SLINT_FEATURE_SYSTEM_TRAY OFF CACHE BOOL "Not needed by Spix")
-    set(SLINT_FEATURE_GETTEXT OFF CACHE BOOL "Not needed by Spix")
-    # Slint is linked as a shared library (the upstream default). The static variant needs
-    # fontconfig & co. listed by hand. Don't let that leak into Spix's own libraries though,
-    # as shared Spix libs break the unit tests (hidden symbols), so restore it afterwards.
-    set(_spix_shared_libs OFF)
-    if(BUILD_SHARED_LIBS)
-        set(_spix_shared_libs ON)
+    # Use the Slint of a parent project (add_subdirectory()/FetchContent), or an installed one,
+    # see scripts/build_slint.sh. Prebuilt Slint packages lack the features below, so build it from source.
+    if(NOT TARGET Slint::Slint)
+        find_package(Slint REQUIRED)
     endif()
-    set(BUILD_SHARED_LIBS ON)
-    add_subdirectory(3rdparty/slint/api/cpp EXCLUDE_FROM_ALL)
-    set(BUILD_SHARED_LIBS ${_spix_shared_libs})
+    # slint-testing.h needs EXPERIMENTAL and TESTING. ElementHandle needs debug info in the compiled
+    # .slint code, which slint_target_sources() only emits with SYSTEM_TESTING (inert unless
+    # SLINT_TEST_SERVER is set at runtime).
+    get_target_property(_spix_slint_features Slint::Slint SLINT_ENABLED_FEATURES)
+    foreach(_feature EXPERIMENTAL TESTING SYSTEM_TESTING)
+        if(NOT "${_feature}" IN_LIST _spix_slint_features)
+            message(FATAL_ERROR "Spix::Slint needs Slint built with SLINT_FEATURE_${_feature}=ON")
+        endif()
+    endforeach()
+    # The Slint tests and examples run with SLINT_BACKEND=headless, which needs MCP.
+    if((SPIX_BUILD_TESTS OR SPIX_BUILD_EXAMPLES) AND NOT "MCP" IN_LIST _spix_slint_features)
+        message(WARNING "Slint was built without SLINT_FEATURE_MCP, the Slint tests and examples need a display")
+    endif()
 endif()
 
 add_subdirectory(libs)

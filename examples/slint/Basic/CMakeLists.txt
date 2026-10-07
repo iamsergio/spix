@@ -5,6 +5,6 @@ target_link_libraries(SpixSlintBasicExample PRIVATE Spix::Slint Slint::Slint)
 
 if(SPIX_BUILD_TESTS)
     add_test(NAME SpixSlintBasicExample COMMAND SpixSlintBasicExample)
-    # headless needs Slint's MCP feature (set by the dev-slint preset), and works without a display
+    # headless needs Slint's MCP feature (set by scripts/build_slint.sh), and works without a display
     set_tests_properties(SpixSlintBasicExample PROPERTIES ENVIRONMENT "SLINT_BACKEND=headless" TIMEOUT 60)
 endif()
