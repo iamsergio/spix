@@ -156,12 +156,12 @@ TEST_F(SlintSceneTest, RegisteredHooks)
         ui->set_custom(slint::SharedString(v));
         return true;
     };
-    hooks->methods["bump"] = [this](const slint::testing::ElementHandle&, const std::vector<spix::Variant>& args,
-                                 spix::Variant& ret) {
-        ui->set_clicks(ui->get_clicks() + (args.empty() ? 1 : static_cast<int>(std::get<long long>(args[0]))));
-        ret = true;
-        return true;
-    };
+    hooks->methods["bump"]
+        = [this](const slint::testing::ElementHandle&, const std::vector<spix::Variant>& args, spix::Variant& ret) {
+              ui->set_clicks(ui->get_clicks() + (args.empty() ? 1 : static_cast<int>(std::get<long long>(args[0]))));
+              ret = true;
+              return true;
+          };
 
     EXPECT_EQ(prop("win/label", "custom"), "initial");
     item("win")->setStringProperty("custom", "changed");

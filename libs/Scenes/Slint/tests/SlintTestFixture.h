@@ -17,11 +17,10 @@ protected:
         ui->show();
         hooks = std::make_shared<spix::SlintHooks>();
         scene = std::make_unique<spix::SlintScene>(hooks);
-        scene->addWindow("win",
-            {&ui->window(), [ui = ui](const spix::SlintScene::ElementVisitor& visitor) {
-                 slint::testing::ElementHandle::visit_elements(ui,
-                     [&visitor](slint::testing::ElementHandle e) { return visitor(std::move(e)); });
-             }});
+        scene->addWindow("win", {&ui->window(), [ui = ui](const spix::SlintScene::ElementVisitor& visitor) {
+                                     slint::testing::ElementHandle::visit_elements(ui,
+                                         [&visitor](slint::testing::ElementHandle e) { return visitor(std::move(e)); });
+                                 }});
     }
 
     void TearDown() override

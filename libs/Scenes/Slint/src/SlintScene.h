@@ -11,7 +11,6 @@
 
 #include <Spix/Scene/Scene.h>
 
-
 #include <functional>
 #include <map>
 #include <memory>

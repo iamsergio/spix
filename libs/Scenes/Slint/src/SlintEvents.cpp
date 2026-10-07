@@ -30,32 +30,57 @@ std::string utf8(std::u8string_view s)
 std::string slintKeyText(int keyCode, KeyModifier mod)
 {
     switch (keyCode) {
-    case KeyCodes::Escape: return utf8(kc::Escape);
-    case KeyCodes::Tab: return utf8(kc::Tab);
-    case KeyCodes::Backtab: return utf8(kc::Backtab);
-    case KeyCodes::Backspace: return utf8(kc::Backspace);
+    case KeyCodes::Escape:
+        return utf8(kc::Escape);
+    case KeyCodes::Tab:
+        return utf8(kc::Tab);
+    case KeyCodes::Backtab:
+        return utf8(kc::Backtab);
+    case KeyCodes::Backspace:
+        return utf8(kc::Backspace);
     case KeyCodes::Return:
-    case KeyCodes::Enter: return utf8(kc::Return);
-    case KeyCodes::Insert: return utf8(kc::Insert);
-    case KeyCodes::Delete: return utf8(kc::Delete);
-    case KeyCodes::Pause: return utf8(kc::Pause);
-    case KeyCodes::SysReq: return utf8(kc::SysReq);
-    case KeyCodes::Home: return utf8(kc::Home);
-    case KeyCodes::End: return utf8(kc::End);
-    case KeyCodes::Left: return utf8(kc::LeftArrow);
-    case KeyCodes::Up: return utf8(kc::UpArrow);
-    case KeyCodes::Right: return utf8(kc::RightArrow);
-    case KeyCodes::Down: return utf8(kc::DownArrow);
-    case KeyCodes::PageUp: return utf8(kc::PageUp);
-    case KeyCodes::PageDown: return utf8(kc::PageDown);
-    case KeyCodes::Shift: return utf8(kc::Shift);
-    case KeyCodes::Control: return utf8(kc::Control);
-    case KeyCodes::Meta: return utf8(kc::Meta);
-    case KeyCodes::Alt: return utf8(kc::Alt);
-    case KeyCodes::CapsLock: return utf8(kc::CapsLock);
-    case KeyCodes::ScrollLock: return utf8(kc::ScrollLock);
-    case KeyCodes::Menu: return utf8(kc::Menu);
-    default: break;
+    case KeyCodes::Enter:
+        return utf8(kc::Return);
+    case KeyCodes::Insert:
+        return utf8(kc::Insert);
+    case KeyCodes::Delete:
+        return utf8(kc::Delete);
+    case KeyCodes::Pause:
+        return utf8(kc::Pause);
+    case KeyCodes::SysReq:
+        return utf8(kc::SysReq);
+    case KeyCodes::Home:
+        return utf8(kc::Home);
+    case KeyCodes::End:
+        return utf8(kc::End);
+    case KeyCodes::Left:
+        return utf8(kc::LeftArrow);
+    case KeyCodes::Up:
+        return utf8(kc::UpArrow);
+    case KeyCodes::Right:
+        return utf8(kc::RightArrow);
+    case KeyCodes::Down:
+        return utf8(kc::DownArrow);
+    case KeyCodes::PageUp:
+        return utf8(kc::PageUp);
+    case KeyCodes::PageDown:
+        return utf8(kc::PageDown);
+    case KeyCodes::Shift:
+        return utf8(kc::Shift);
+    case KeyCodes::Control:
+        return utf8(kc::Control);
+    case KeyCodes::Meta:
+        return utf8(kc::Meta);
+    case KeyCodes::Alt:
+        return utf8(kc::Alt);
+    case KeyCodes::CapsLock:
+        return utf8(kc::CapsLock);
+    case KeyCodes::ScrollLock:
+        return utf8(kc::ScrollLock);
+    case KeyCodes::Menu:
+        return utf8(kc::Menu);
+    default:
+        break;
     }
 
     if (keyCode >= KeyCodes::F1 && keyCode <= KeyCodes::F24) {
