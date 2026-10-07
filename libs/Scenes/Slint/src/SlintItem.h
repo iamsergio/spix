@@ -10,7 +10,6 @@
 
 #include <Spix/Scene/Item.h>
 
-
 #include <memory>
 #include <optional>
 #include <string>

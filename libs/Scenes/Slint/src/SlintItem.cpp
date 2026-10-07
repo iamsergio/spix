@@ -44,27 +44,48 @@ const char* roleName(slint::language::AccessibleRole role)
 {
     using R = slint::language::AccessibleRole;
     switch (role) {
-    case R::None: return "none";
-    case R::Button: return "button";
-    case R::Checkbox: return "checkbox";
-    case R::Combobox: return "combobox";
-    case R::Groupbox: return "groupbox";
-    case R::Image: return "image";
-    case R::List: return "list";
-    case R::Slider: return "slider";
-    case R::Spinbox: return "spinbox";
-    case R::Tab: return "tab";
-    case R::TabList: return "tab-list";
-    case R::TabPanel: return "tab-panel";
-    case R::Text: return "text";
-    case R::Table: return "table";
-    case R::Tree: return "tree";
-    case R::ProgressIndicator: return "progress-indicator";
-    case R::TextInput: return "text-input";
-    case R::Switch: return "switch";
-    case R::ListItem: return "list-item";
-    case R::RadioButton: return "radio-button";
-    default: return "other";
+    case R::None:
+        return "none";
+    case R::Button:
+        return "button";
+    case R::Checkbox:
+        return "checkbox";
+    case R::Combobox:
+        return "combobox";
+    case R::Groupbox:
+        return "groupbox";
+    case R::Image:
+        return "image";
+    case R::List:
+        return "list";
+    case R::Slider:
+        return "slider";
+    case R::Spinbox:
+        return "spinbox";
+    case R::Tab:
+        return "tab";
+    case R::TabList:
+        return "tab-list";
+    case R::TabPanel:
+        return "tab-panel";
+    case R::Text:
+        return "text";
+    case R::Table:
+        return "table";
+    case R::Tree:
+        return "tree";
+    case R::ProgressIndicator:
+        return "progress-indicator";
+    case R::TextInput:
+        return "text-input";
+    case R::Switch:
+        return "switch";
+    case R::ListItem:
+        return "list-item";
+    case R::RadioButton:
+        return "radio-button";
+    default:
+        return "other";
     }
 }
 
@@ -166,9 +187,8 @@ std::optional<std::string> slintElementProperty(
     return std::nullopt;
 }
 
-SlintItem::SlintItem(
-    slint::Window* window, std::optional<ElementHandle> element, std::optional<ElementHandle> anyElement,
-    std::shared_ptr<SlintHooks> hooks)
+SlintItem::SlintItem(slint::Window* window, std::optional<ElementHandle> element,
+    std::optional<ElementHandle> anyElement, std::shared_ptr<SlintHooks> hooks)
 : m_window(window)
 , m_element(std::move(element))
 , m_anyElement(std::move(anyElement))

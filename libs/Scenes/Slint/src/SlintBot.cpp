@@ -26,8 +26,8 @@ struct SlintBot::Private {
 SlintBot::SlintBot()
 : d(std::make_unique<Private>())
 {
-    d->timer.start(slint::TimerMode::Repeated, std::chrono::milliseconds(10),
-        [this] { d->cmdExec.processCommands(d->scene); });
+    d->timer.start(
+        slint::TimerMode::Repeated, std::chrono::milliseconds(10), [this] { d->cmdExec.processCommands(d->scene); });
 }
 
 SlintBot::~SlintBot() = default;
