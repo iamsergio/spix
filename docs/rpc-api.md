@@ -35,6 +35,7 @@ print(s.system.methodHelp('mouseClick'))
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `mouseClick` | `mouseClick(path)` | Click at item center |
+| `mouseDoubleClick` | `mouseDoubleClick(path)` | Double-click the left button at item center |
 | `mouseClickWithButton` | `mouseClickWithButton(path, button, modifier)` | Click with specific button and modifiers |
 | `mouseClickWithOffset` | `mouseClickWithOffset(path, offsetX, offsetY)` | Click with pixel offset from top-left |
 | `mouseClickWithProportion` | `mouseClickWithProportion(path, propX, propY)` | Click at proportional position (0.0-1.0) |

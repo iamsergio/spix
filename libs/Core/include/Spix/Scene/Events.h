@@ -21,6 +21,15 @@ public:
 
     virtual void mouseDown(Item* item, Point loc, MouseButton button, KeyModifier mod) = 0;
     virtual void mouseUp(Item* item, Point loc, MouseButton button, KeyModifier mod) = 0;
+    /// Double-click with the given button. Scenes whose toolkit does not count clicks itself
+    /// (QtQuick, QtWidgets) override this to also post the double-click event.
+    virtual void mouseDoubleClick(Item* item, Point loc, MouseButton button, KeyModifier mod)
+    {
+        mouseDown(item, loc, button, mod);
+        mouseUp(item, loc, button, mod);
+        mouseDown(item, loc, button, mod);
+        mouseUp(item, loc, button, mod);
+    }
     virtual void mouseMove(Item* item, Point loc) = 0;
     virtual void stringInput(Item* item, const std::string& text) = 0;
     virtual void keyPress(Item* item, int keyCode, KeyModifier mod) = 0;

@@ -57,6 +57,10 @@ AnyRpcServer::AnyRpcServer(int anyrpcPort)
             mouseClick(std::move(path), proportion);
         });
 
+    utils::AddFunctionToAnyRpc<void(std::string)>(methodManager, "mouseDoubleClick",
+        "Double-click the left mouse button on the object at the given path | mouseDoubleClick(string path)",
+        [this](std::string path) { mouseDoubleClick(std::move(path)); });
+
     utils::AddFunctionToAnyRpc<void(std::string)>(methodManager, "mouseBeginDrag",
         "Begin a drag with the mouse | mouseBeginDrag(string path)",
         [this](std::string path) { mouseBeginDrag(std::move(path)); });

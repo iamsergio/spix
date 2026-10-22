@@ -131,6 +131,30 @@ void QtEvents::mouseUp(Item* item, Point loc, MouseButton button, KeyModifier mo
     QGuiApplication::postEvent(window, event);
 }
 
+void QtEvents::mouseDoubleClick(Item* item, Point loc, MouseButton button, KeyModifier mod)
+{
+    QPointF windowLoc;
+    auto window = getWindowAndPositionForItem(item, loc, windowLoc);
+    if (!window)
+        return;
+
+    // What QGuiApplication produces for a real double-click: press, release, press, double-click, release.
+    // Posted events are never turned into a double-click by Qt, so post it ourselves.
+    mouseDown(item, loc, button, mod);
+    mouseUp(item, loc, button, mod);
+    mouseDown(item, loc, button, mod);
+
+    // The button is down during the double-click event, as for the second press
+    Qt::MouseButton eventCausingButton = getQtMouseButtonValue(button);
+    Qt::MouseButtons activeButtons = getQtMouseButtonValue(m_pressedMouseButtons);
+    auto qtmod = getQtKeyboardModifiers(mod);
+    QMouseEvent* event
+        = new QMouseEvent(QEvent::MouseButtonDblClick, windowLoc, eventCausingButton, activeButtons, qtmod);
+    QGuiApplication::postEvent(window, event);
+
+    mouseUp(item, loc, button, mod);
+}
+
 void QtEvents::mouseMove(Item* item, Point loc)
 {
     QPointF windowLoc;

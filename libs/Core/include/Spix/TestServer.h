@@ -52,6 +52,8 @@ public:
     void mouseClick(ItemPath path, Point proportion, Point offset);
     void mouseClick(ItemPath path, MouseButton mouseButton, KeyModifier keyModifier = spix::KeyModifiers::None);
 
+    void mouseDoubleClick(ItemPath path);
+
     void mouseBeginDrag(ItemPath path);
     void mouseEndDrag(ItemPath path);
     void mouseDropUrls(ItemPath path, const std::vector<std::string>& urls);

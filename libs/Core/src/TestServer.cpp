@@ -10,6 +10,7 @@
 
 #include <Commands/ClickOnItem.h>
 #include <Commands/CustomCmd.h>
+#include <Commands/DoubleClickOnItem.h>
 #include <Commands/DragBegin.h>
 #include <Commands/DragEnd.h>
 #include <Commands/DropFromExt.h>
@@ -86,6 +87,11 @@ void TestServer::mouseClick(ItemPath path, Point proportion, Point offset)
 void TestServer::mouseClick(ItemPath path, MouseButton mouseButton, KeyModifier keyModifier)
 {
     m_cmdExec->enqueueCommand<cmd::ClickOnItem>(path, mouseButton, keyModifier);
+}
+
+void TestServer::mouseDoubleClick(ItemPath path)
+{
+    m_cmdExec->enqueueCommand<cmd::DoubleClickOnItem>(path, spix::MouseButtons::Left, spix::KeyModifiers::None);
 }
 
 void TestServer::mouseBeginDrag(ItemPath path)

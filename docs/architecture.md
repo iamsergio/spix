@@ -116,6 +116,7 @@ public:
     virtual ~Events() = default;
     virtual void mouseDown(Item* item, Point loc, MouseButton button) = 0;
     virtual void mouseUp(Item* item, Point loc, MouseButton button) = 0;
+    virtual void mouseDoubleClick(Item* item, Point loc, MouseButton button, KeyModifier mod); // default: down, up, down, up
     virtual void mouseMove(Item* item, Point loc) = 0;
     virtual void stringInput(Item* item, const std::string& text) = 0;
     virtual void keyPress(Item* item, int keyCode, KeyModifier mod) = 0;
