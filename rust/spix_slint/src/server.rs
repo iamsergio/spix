@@ -321,6 +321,7 @@ async fn execute(call: Call) -> Result<Value, Fault> {
                 Value::Double(bounds.height),
             ]))
         }
+        "takeScreenshot" => take_screenshot(params),
         "getErrors" => Ok(Value::Array(
             errors().into_iter().map(Value::String).collect(),
         )),
@@ -328,6 +329,22 @@ async fn execute(call: Call) -> Result<Value, Fault> {
         // outside the protocol.
         _ => Err(Fault::unsupported()),
     }
+}
+
+/// Writes a PNG of the item at `path` to `file`, before the call answers so that the caller can
+/// read it at once. A path that isn't there, a renderer without pixels or a file that can't be
+/// written goes into `getErrors`.
+fn take_screenshot(params: &[Value]) -> Result<Value, Fault> {
+    let (path, file) = (string_param(params, 0)?, string_param(params, 1)?);
+    with_item(path, "TakeScreenshot", &mut |window, item| {
+        let written = scene::screenshot_png(window, item)
+            .map_err(|error| error.to_string())
+            .and_then(|png| std::fs::write(file, png).map_err(|error| error.to_string()));
+        if let Err(error) = written {
+            report(format!("TakeScreenshot: {path}: {error}"));
+        }
+    });
+    Ok(empty())
 }
 
 /// Clicks the item at `path` with Slint's own `single_click`, which knows where an element inside
@@ -604,6 +621,23 @@ mod tests {
 
     // INFRA-004
     #[test]
+    fn a_screenshot_of_a_path_that_is_not_there_leaves_the_spix_error() {
+        run(
+            "takeScreenshot",
+            vec![
+                Value::String("mainWindow/nowhere".to_owned()),
+                Value::String("unused.png".to_owned()),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            errors(),
+            vec!["TakeScreenshot: Item not found: mainWindow/nowhere".to_owned()]
+        );
+    }
+
+    // INFRA-004
+    #[test]
     fn get_errors_keeps_what_it_has_reported_so_far() {
         run("mouseClick", path_param("mainWindow/nowhere")).unwrap();
         let reported = run("getErrors", vec![]).unwrap();
@@ -620,7 +654,11 @@ mod tests {
     fn answers_a_fault_for_everything_outside_the_protocol() {
         // Through `execute`, as the other calls here: `dispatch` hands everything but `wait` and
         // `quit` to the event loop, and this test has none.
-        let unknown = run("takeScreenshot", vec![Value::String("a".to_owned())]).unwrap_err();
+        let unknown = run(
+            "takeScreenshotAsBase64",
+            vec![Value::String("a".to_owned())],
+        )
+        .unwrap_err();
         assert_eq!(unknown.code, FAULT_UNSUPPORTED);
         assert_eq!(unknown.message, "unsupported");
 

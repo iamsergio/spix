@@ -72,7 +72,11 @@ a Qt app and its Rust Slint port unchanged.
   strings of `getErrors` as C++ Spix words them, since clients retry on them
 - [x] Tests: unit tests on a window of its own (`slint::slint!`) for decode/encode, faults, path
   lookup, properties and text input; one test binary for the whole protocol over a socket — clicks,
-  a menu opened by a click and by a right click, and `quit`
+  a menu opened by a click and by a right click, `takeScreenshot`, and `quit`
+- [x] `takeScreenshot(path, file)`: `Window::take_snapshot()` cropped to the element's window
+  rectangle times the scale factor, clamped, as `SlintScene::screenshotPng` does; PNG by the `png`
+  crate, written before the call answers. A missing path, or a renderer without pixels, goes into
+  `getErrors`. `takeScreenshotAsBase64` is not implemented
 
 # Findings and for later
 
@@ -108,6 +112,11 @@ Open questions, limitations and things worth revisiting. Append here when you fi
 - Warnings from the scene are de-duplicated, since a lookup tests every element.
 
 ### Findings of the Rust server (Phase 5)
+
+- **The testing backend's default renderer is a mock with no pixels**: `take_snapshot()` fails on
+  it. `i-slint-backend-testing`'s `renderer-software` feature adds `renderer_name` to
+  `TestingBackendOptions`; `Some("software".into())` gives windows a real rasterizer, which also
+  measures text with real fonts, unlike the mock's fixed metrics.
 
 - **Click into a popup with Slint's own helpers, as a future.** `absolute_position()` of a menu item
   is its position *inside* the popup, so a hand-made centre click misses it; `single_click` and

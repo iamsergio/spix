@@ -10,6 +10,8 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use i_slint_backend_testing::TestingBackend;
+use i_slint_backend_testing::testing_backend::TestingBackendOptions;
 use slint::ComponentHandle;
 
 slint::slint! {
@@ -50,6 +52,17 @@ slint::slint! {
             x: 100px;
             y: 60px;
             width: 80px;
+            height: 30px;
+        }
+
+        // A known colour and size, for `takeScreenshot`.
+        Rectangle {
+            accessible-role: button;
+            accessible-id: "swatch";
+            background: #3366cc;
+            x: 200px;
+            y: 60px;
+            width: 50px;
             height: 30px;
         }
 
@@ -122,8 +135,14 @@ impl Drop for QuitWhenDone {
 // INFRA-004
 #[test]
 fn answers_the_calls_of_the_gui_tests_and_quits() -> Result<(), String> {
-    // Real time, as the app runs under the tests: timers and the core's events keep working.
-    i_slint_backend_testing::init_integration_test_with_system_time();
+    // Real time, as the app runs under the tests: timers and the core's events keep working. The
+    // software renderer, because the mock one has no pixels for `takeScreenshot`.
+    slint::platform::set_platform(Box::new(TestingBackend::new(TestingBackendOptions {
+        mock_time: false,
+        threading: true,
+        renderer_name: Some("software".into()),
+    })))
+    .map_err(|error| error.to_string())?;
 
     let window = ServerTestWindow::new().map_err(|error| error.to_string())?;
     let port = free_port()?;
@@ -158,6 +177,7 @@ fn drive(port: u16) -> Result<(), String> {
     keys(port)?;
     waiting(port)?;
     errors(port)?;
+    screenshots(port)?;
 
     menu(port)?;
 
@@ -349,6 +369,36 @@ fn waiting(port: u16) -> Result<(), String> {
     Ok(())
 }
 
+/// A screenshot of an element is a PNG of its size and colour, written before the call answers.
+fn screenshots(port: u16) -> Result<(), String> {
+    let file = std::env::temp_dir().join(format!("spix_slint_swatch_{}.png", std::process::id()));
+    let file_name = file.to_string_lossy().into_owned();
+    assert_eq!(
+        call(
+            port,
+            "takeScreenshot",
+            &[path("mainWindow/swatch"), path(&file_name)]
+        )?,
+        Answer::Text(String::new())
+    );
+    let decoder = png::Decoder::new(std::io::BufReader::new(
+        std::fs::File::open(&file).map_err(|error| error.to_string())?,
+    ));
+    let mut reader = decoder.read_info().map_err(|error| error.to_string())?;
+    let mut pixels = vec![0; reader.output_buffer_size().ok_or("no buffer size")?];
+    let info = reader
+        .next_frame(&mut pixels)
+        .map_err(|error| error.to_string())?;
+    let _ = std::fs::remove_file(&file);
+    assert_eq!((info.width, info.height), (50, 30));
+    assert_eq!(info.color_type, png::ColorType::Rgba);
+    for pixel in pixels[..info.buffer_size()].chunks(4) {
+        assert_eq!(pixel, [0x33, 0x66, 0xcc, 0xff]);
+    }
+
+    Ok(())
+}
+
 /// A path that isn't there is an error the client reads on the next call, not a fault; everything
 /// outside the protocol is a fault, not a call that quietly did nothing.
 fn errors(port: u16) -> Result<(), String> {
@@ -366,8 +416,24 @@ fn errors(port: u16) -> Result<(), String> {
             "GetProperty: Item not found: mainWindow/nope".to_owned()
         ])
     );
+    // Like the other calls, one of a path that isn't there is an error in `getErrors`, not a fault.
     assert_eq!(
-        call(port, "takeScreenshot", &[path("mainWindow")]),
+        call(
+            port,
+            "takeScreenshot",
+            &[path("mainWindow/nope"), path("unused.png")]
+        )?,
+        Answer::Text(String::new())
+    );
+    assert_eq!(
+        call(port, "getErrors", &[])?,
+        Answer::Array(vec![
+            "GetProperty: Item not found: mainWindow/nope".to_owned(),
+            "TakeScreenshot: Item not found: mainWindow/nope".to_owned()
+        ])
+    );
+    assert_eq!(
+        call(port, "takeScreenshotAsBase64", &[path("mainWindow")]),
         Err("unsupported".to_owned())
     );
     Ok(())

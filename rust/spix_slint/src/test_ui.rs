@@ -151,6 +151,7 @@ pub(crate) fn window() -> TestWindow {
     let _ = set_platform(Box::new(TestingBackend::new(TestingBackendOptions {
         mock_time: true,
         threading: false,
+        ..Default::default()
     })));
     TestWindow::new().expect("the testing backend of this thread to be set")
 }

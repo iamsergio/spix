@@ -15,7 +15,9 @@ publish = false
 
 [dependencies]
 # Pinned exactly: the testing crate is internal to Slint and its version must match slint's.
-i-slint-backend-testing = "=1.18.1"
+# `renderer-software` gives the testing backend a real rasterizer to take screenshots from.
+i-slint-backend-testing = { version = "=1.18.1", features = ["renderer-software"] }
+png = "0.18.1"
 roxmltree = "0.21.1"
 slint = { version = "=1.18.1", default-features = false, features = ["compat-1-2", "std"] }
 thiserror = "2.0.21"
@@ -23,7 +25,7 @@ thiserror = "2.0.21"
 # The tests drive a window of their own, so they need slint and the testing backend directly:
 # integration tests see the dependencies of the test, not of the library.
 [dev-dependencies]
-i-slint-backend-testing = "=1.18.1"
+i-slint-backend-testing = { version = "=1.18.1", features = ["renderer-software"] }
 roxmltree = "0.21.1"
 slint = { version = "=1.18.1", default-features = false, features = ["compat-1-2", "std"] }
 
