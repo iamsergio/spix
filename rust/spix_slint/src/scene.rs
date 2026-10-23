@@ -75,6 +75,62 @@ fn geometry(window: &Window, item: &Item) -> (LogicalPosition, LogicalSize) {
     }
 }
 
+/// Why an item can't be photographed.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ScreenshotError {
+    /// The renderer has no pixels, as the testing backend's mock renderer.
+    #[error("the window can't be rendered: {0}")]
+    Snapshot(String),
+    #[error("the item has no visible area in the window")]
+    Empty,
+    #[error("can't encode the image: {0}")]
+    Encode(#[from] png::EncodingError),
+}
+
+/// A PNG of `item`, cropped from a snapshot of the window. The snapshot is in physical pixels and
+/// the geometry in logical ones, so the item's rectangle is scaled and clamped to the snapshot.
+pub(crate) fn screenshot_png(window: &Window, item: &Item) -> Result<Vec<u8>, ScreenshotError> {
+    let snapshot = window
+        .take_snapshot()
+        .map_err(|error| ScreenshotError::Snapshot(error.to_string()))?;
+    let scale = f64::from(window.scale_factor());
+    let (at, size) = geometry(window, item);
+    let (image_width, image_height) = (snapshot.width(), snapshot.height());
+    let edge = |logical: f32, limit: u32| {
+        // Clamped to the image first, so the conversion back to u32 can't overflow or go negative.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let pixel = (f64::from(logical) * scale)
+            .round()
+            .clamp(0.0, f64::from(limit)) as u32;
+        pixel
+    };
+    let left = edge(at.x, image_width);
+    let top = edge(at.y, image_height);
+    let right = edge(at.x + size.width, image_width);
+    let bottom = edge(at.y + size.height, image_height);
+    if right <= left || bottom <= top {
+        return Err(ScreenshotError::Empty);
+    }
+
+    // The snapshot is RGBA, four bytes a pixel, row after row: copy the rows of the crop.
+    let pixels = snapshot.as_bytes();
+    let row = |y: u32| {
+        let start = (y as usize * image_width as usize + left as usize) * 4;
+        &pixels[start..start + (right - left) as usize * 4]
+    };
+    let mut cropped = Vec::with_capacity(((right - left) * (bottom - top)) as usize * 4);
+    for y in top..bottom {
+        cropped.extend_from_slice(row(y));
+    }
+
+    let mut png = Vec::new();
+    let mut encoder = png::Encoder::new(&mut png, right - left, bottom - top);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.write_header()?.write_image_data(&cropped)?;
+    Ok(png)
+}
+
 /// Whether Spix sees the item as visible. Elements are only found while they are visible, so only
 /// the window itself can answer false.
 pub(crate) fn visible(window: &Window, item: &Item) -> bool {
@@ -236,6 +292,18 @@ mod tests {
             Some(Item::Element(_))
         ));
         assert!(find_item(&root, &["anchor", "popup-item"]).is_none());
+    }
+
+    // INFRA-004
+    #[test]
+    fn a_window_without_pixels_cannot_be_photographed() {
+        // The unit tests run on the mock renderer, which has none: an error, not an empty image.
+        let window = test_ui::window();
+        let result = screenshot_png(window.window(), &Item::Window);
+        assert!(
+            matches!(result, Err(ScreenshotError::Snapshot(_))),
+            "{result:?}"
+        );
     }
 
     // INFRA-004

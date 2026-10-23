@@ -12,7 +12,8 @@ window.run()?;
 
 `start` listens on `127.0.0.1:<port>` and answers these calls: clicks, key and
 text input, `existsAndVisible`, get and set of `text`, `checked`, `enabled` and `count`,
-`getBoundingBox`, `wait`, `quit` and `getErrors`. Anything else is a fault reading `unsupported`.
+`getBoundingBox`, `takeScreenshot`, `wait`, `quit` and `getErrors`. Anything else is a fault
+reading `unsupported`.
 
 - **Paths** are `<window>/<id>/<id>/...`: the first segment names a window registered with
   `start`, and every following one is an `accessible-id` looked for depth-first among the
@@ -26,6 +27,12 @@ text input, `existsAndVisible`, get and set of `text`, `checked`, `enabled` and 
 - **The app runs headless** with Slint's testing backend (`i-slint-backend-testing`), set before
   the window is created. Its findings, and the C++ backend this ports, are in this repository's
   `PROGRESS.md`.
+- **`takeScreenshot` needs pixels.** It crops a PNG of the element from `Window::take_snapshot()`,
+  which the testing backend's default mock renderer can't give (the call then reports an error in
+  `getErrors`). Set the platform yourself with `TestingBackendOptions { renderer_name:
+  Some("software".into()), .. }` (the `renderer-software` feature of `i-slint-backend-testing`,
+  which this crate turns on) instead of `init_integration_test_with_system_time()`.
+  `takeScreenshotAsBase64` is not implemented.
 
 Test with `cargo test`: the unit tests drive a small window of their own, and `tests/server.rs`
 answers the whole protocol over a socket, `quit` included.
