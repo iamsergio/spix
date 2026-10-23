@@ -47,6 +47,33 @@ Agents working on this: tick steps as you finish them, and add anything worth kn
 ### Phase 4: CI
 - [x] CI job building with `SPIX_BUILD_SLINT=ON` and running the Slint tests and examples. Builds Slint v1.18.0 from source first and caches its install
 
+### Phase 5: `spix_slint`, the server in Rust
+Goal: the same protocol for a Slint app written in Rust, where this backend can't be used at all:
+it needs C++-generated Slint components, and a Rust Slint app has a different Slint runtime. Ports
+the *logic* of Phase 1, in `rust/spix_slint/`, so that a GUI test suite written against Spix drives
+a Qt app and its Rust Slint port unchanged.
+
+- [x] The listener thread: `std::net`, the little HTTP/1.1 that `ureq` sends, `roxmltree` decoding
+  of the calls in `docs/rpc-api.md` that a GUI test suite needs. Every method but `wait` and `quit` is handed to the
+  GUI thread with `slint::invoke_from_event_loop` and waits for the answer there; `wait` sleeps on
+  the listener thread so the app keeps running, `quit` calls `slint::quit_event_loop()` from
+  wherever it is called, so `main` returns normally
+- [x] Paths `<window>/<id>/<id>/...`: the windows come from
+  `spix_slint::start(port, [("mainWindow", window.as_weak())])`, and each following segment is an
+  `accessible-id` looked for with `visit_descendants` among the descendants of the previous match,
+  the first in tree order winning. Real ancestry instead of Phase 1's geometric containment; the
+  window itself still has no element behind it
+- [x] Properties as `SlintItem` maps them (`text` from accessible value or label, `checked`,
+  `enabled`, `count`), bounds in screen coordinates from `absolute_position()` plus the window's
+  place on the screen, and input: clicks through Slint's own `ElementHandle::single_click` and
+  `double_click` (which know where a popup item stands), modifiers as key presses around them,
+  `inputText`/`enterKey` dispatched to the window, Spix `KeyCodes` → `slint::platform::Key`
+- [x] Faults for everything outside the protocol (fault code -32601, `unsupported`), and the error
+  strings of `getErrors` as C++ Spix words them, since clients retry on them
+- [x] Tests: unit tests on a window of its own (`slint::slint!`) for decode/encode, faults, path
+  lookup, properties and text input; one test binary for the whole protocol over a socket — clicks,
+  a menu opened by a click and by a right click, and `quit`
+
 # Findings and for later
 
 Open questions, limitations and things worth revisiting. Append here when you find something.
@@ -79,3 +106,36 @@ Open questions, limitations and things worth revisiting. Append here when you fi
 - **Slint's element search doesn't visit the window's own element.** The first visited element is the window's first child. A window path therefore has no `ElementHandle`: `SlintItem` takes size and position from the window, supports only `width`/`height`/`x`/`y`/`visible` plus registered getters, and calls registered handlers with the window's first element. Found by the Phase 3 tests (Phase 1 had treated the first element as the root).
 - **Phase 3 coverage** (`SpixSlintTests`, 27 tests, run headless): lookup, nesting, repeaters, hidden, `#Type`, `(prop=value)`, unsupported `.property`, property mapping, setters, built-in methods, hooks, clicks with buttons/modifiers, key input, screenshots. Not covered: `mouseBeginDrag`/`mouseEndDrag`, popups, `PopupWindow` contents (still unknown).
 - Warnings from the scene are de-duplicated, since a lookup tests every element.
+
+### Findings of the Rust server (Phase 5)
+
+- **Click into a popup with Slint's own helpers, as a future.** `absolute_position()` of a menu item
+  is its position *inside* the popup, so a hand-made centre click misses it; `single_click` and
+  `double_click` are public and use the popup-aware `absolute_center()`, but they wait on a real
+  timer and deadlock if awaited inside the `invoke_from_event_loop` closure — `spawn_local` the
+  call instead and send the answer when the future finishes. The helpers that advance mock time
+  (`mock_single_click`, `mock_drag`) die on a real-time backend with `The platform's clock is not
+  monotonic!`, and the `internal` feature exposing `active_popups()` doesn't compile from the
+  published crate, which `include_bytes!`s fonts that only exist in the Slint repository.
+- **`getBoundingBox` of a popup item is still relative to the popup** (it reads
+  `absolute_position()`). No test reads popup geometry.
+- **`slint::slint!` reads `SLINT_EMIT_DEBUG_INFO` when it compiles**; without it the element search
+  finds nothing. A `build.rs` printing `cargo:rustc-env=SLINT_EMIT_DEBUG_INFO=1` turns it on; a UI
+  compiled through `slint-build` uses `with_debug_info(true)` instead.
+- **The testing backend is set per thread**, and `init_no_event_loop()` panics when the thread
+  already has one, while libtest hands a thread to one test after another: tests that set the
+  platform themselves keep working. `init_integration_test_with_system_time()` is still once per
+  process, because it also claims the global event-loop proxy.
+- **The testing backend opens an 800x600 window**, whatever the `.slint` window says; read a
+  window's size back instead of assuming it.
+- **`clicked` is for the left button only**: a right click reaches the element through its
+  `pointer-event`, which is where a menu opened by right-click has to come from.
+- **`slint::quit_event_loop()` can be called from any thread**, so `quit` is answered by the
+  listener thread, its answer goes out first, and `main` returns normally.
+- **A path dependency of a workspace member joins that workspace** while it sits inside the
+  workspace directory, and errors with "multiple workspace roots" if it carries its own
+  `[workspace]` table. `rust/spix_slint` is a member of such a workspace when this repository is a
+  submodule inside one, and its own root in a clone of this repository alone, which its manifest
+  written out in full makes possible.
+- **A fault outside the protocol is `-32601` / `unsupported`**, for a method or a parameter type the
+  server doesn't speak, so a test that calls one fails loudly instead of silently doing nothing.
