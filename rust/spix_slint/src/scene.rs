@@ -162,6 +162,12 @@ pub(crate) fn string_property(item: &Item, name: &str) -> Option<String> {
         "count" => element
             .accessible_item_count()
             .map(|count| count.to_string()),
+        // Slint's testing API doesn't expose whether a text is elided, so an app that wants its
+        // tests to know sets `accessible-description: "truncated"` on the element while it is.
+        // Anything else, or no description at all, is "not known to be cut".
+        "truncated" => {
+            Some((element.accessible_description().as_deref() == Some("truncated")).to_string())
+        }
         _ => None,
     }
 }
@@ -250,6 +256,20 @@ mod tests {
         assert_eq!(
             string_property(&item("list"), "count"),
             Some("3".to_owned())
+        );
+
+        // `truncated` follows the description: "truncated" is true, anything else is false.
+        assert_eq!(
+            string_property(&item("cut"), "truncated"),
+            Some("true".to_owned())
+        );
+        assert_eq!(
+            string_property(&item("whole"), "truncated"),
+            Some("false".to_owned())
+        );
+        assert_eq!(
+            string_property(&item("label"), "truncated"),
+            Some("false".to_owned())
         );
 
         // The window itself has no accessibility properties, and a property nothing sets isn't

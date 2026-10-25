@@ -12,13 +12,18 @@ window.run()?;
 
 `start` listens on `127.0.0.1:<port>` and answers these calls: clicks, key and
 text input, `existsAndVisible`, get and set of `text`, `checked`, `enabled` and `count`,
-`getBoundingBox`, `takeScreenshot`, `wait`, `quit` and `getErrors`. Anything else is a fault
-reading `unsupported`.
+`truncated` (see below), `getBoundingBox`, `takeScreenshot`, `wait`, `quit` and `getErrors`.
+Anything else is a fault reading `unsupported`.
 
 - **Paths** are `<window>/<id>/<id>/...`: the first segment names a window registered with
   `start`, and every following one is an `accessible-id` looked for depth-first among the
   descendants of the previous match, the first one in tree order winning. The window itself has no
   element behind it: Slint's search never visits it.
+- **`truncated`** is `true` when the element's `accessible-description` is exactly `truncated`, and
+  `false` otherwise, also when it has no description. Slint's testing API exposes no preferred
+  size and no elision, so an app sets the description itself where its tests need the answer, for
+  example `accessible-description: self.preferred-width > self.width ? "truncated" : "";` on a
+  `Text` with `overflow: elide`.
 - **Threading**: the listener thread hands each call to the GUI thread with
   `slint::invoke_from_event_loop`, where it runs as a future (clicks wait on Slint's timers), and
   waits for the answer; `wait` sleeps on the listener thread so
