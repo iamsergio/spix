@@ -39,6 +39,24 @@ slint::slint! {
             text: "Hello";
         }
 
+        Text {
+            accessible-role: text;
+            accessible-id: "cut";
+            accessible-description: "truncated";
+            x: 100px;
+            y: 0;
+            text: "Cut";
+        }
+
+        Text {
+            accessible-role: text;
+            accessible-id: "whole";
+            accessible-description: "";
+            x: 200px;
+            y: 0;
+            text: "Whole";
+        }
+
         field := TextInput {
             accessible-id: "field";
             x: 0;
