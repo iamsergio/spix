@@ -15,9 +15,11 @@
 #include <QObject>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QWheelEvent>
 
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
+#include <QElapsedTimer>
 #include <QMimeData>
 
 namespace spix {
@@ -175,6 +177,29 @@ void QtEvents::mouseMove(Item* item, Point loc)
     mouseMoveEvent
         = new QMouseEvent(QEvent::MouseMove, windowLoc, Qt::MouseButton::NoButton, activeButtons, Qt::NoModifier);
     QGuiApplication::postEvent(window, mouseMoveEvent);
+}
+
+void QtEvents::mouseWheel(Item* item, Point loc, Point angleDelta)
+{
+    QPointF windowLoc;
+    auto window = getWindowAndPositionForItem(item, loc, windowLoc);
+    if (!window)
+        return;
+
+    // What a physical mouse wheel sends: no pixel delta, no modifiers, no scroll phase.
+    Qt::MouseButtons activeButtons = getQtMouseButtonValue(m_pressedMouseButtons);
+    // Qt 5's mapToGlobal takes only a QPoint: map the origin and keep the fractional position.
+    QPointF globalLoc = QPointF(window->mapToGlobal(QPoint(0, 0))) + windowLoc;
+    QWheelEvent* event = new QWheelEvent(windowLoc, globalLoc, QPoint(),
+        QPoint(qRound(angleDelta.x), qRound(angleDelta.y)), activeButtons, Qt::NoModifier, Qt::NoScrollPhase, false);
+    // Flickable derives its velocity from the time between wheel events, so they need a clock.
+    static QElapsedTimer clock = [] {
+        QElapsedTimer timer;
+        timer.start();
+        return timer;
+    }();
+    event->setTimestamp(static_cast<ulong>(clock.elapsed()));
+    QGuiApplication::postEvent(window, event);
 }
 
 void QtEvents::stringInput(Item* item, const std::string& text)

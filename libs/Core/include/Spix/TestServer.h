@@ -54,6 +54,11 @@ public:
 
     void mouseDoubleClick(ItemPath path);
 
+    /// Turns the mouse wheel `steps` times (at least 1) over the centre of the item, `interval`
+    /// apart while the app keeps running. `angleDelta` is in Qt's `QWheelEvent::angleDelta()`
+    /// units, see Events::mouseWheel. Returns once the commands are queued.
+    void mouseWheel(ItemPath path, int angleDeltaX, int angleDeltaY, int steps, std::chrono::milliseconds interval);
+
     void mouseBeginDrag(ItemPath path);
     void mouseEndDrag(ItemPath path);
     void mouseDropUrls(ItemPath path, const std::vector<std::string>& urls);

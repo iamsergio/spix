@@ -36,6 +36,10 @@ void MockEvents::mouseMove(Item* item, Point loc)
     }
 }
 
+void MockEvents::mouseWheel(Item* /*item*/, Point /*loc*/, Point /*angleDelta*/)
+{
+}
+
 void MockEvents::stringInput(Item* item, const std::string& text)
 {
     if (onStringInputEvent) {

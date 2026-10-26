@@ -118,6 +118,7 @@ public:
     virtual void mouseUp(Item* item, Point loc, MouseButton button) = 0;
     virtual void mouseDoubleClick(Item* item, Point loc, MouseButton button, KeyModifier mod); // default: down, up, down, up
     virtual void mouseMove(Item* item, Point loc) = 0;
+    virtual void mouseWheel(Item* item, Point loc, Point angleDelta) = 0; // Qt's angleDelta: 120 = one notch, +y = towards the start
     virtual void stringInput(Item* item, const std::string& text) = 0;
     virtual void keyPress(Item* item, int keyCode, KeyModifier mod) = 0;
     virtual void keyRelease(Item* item, int keyCode, KeyModifier mod) = 0;

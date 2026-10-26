@@ -63,6 +63,12 @@ pub(crate) fn bounds(window: &Window, item: &Item) -> Rect {
     }
 }
 
+/// The centre of `item` in window-logical coordinates, where a pointer event meant for it lands.
+pub(crate) fn center(window: &Window, item: &Item) -> LogicalPosition {
+    let (at, size) = geometry(window, item);
+    LogicalPosition::new(at.x + size.width / 2.0, at.y + size.height / 2.0)
+}
+
 /// Where the item is in the window and how big it is, all in logical pixels. `window.size()` is
 /// physical, and the window's own position on screen is none of this.
 fn geometry(window: &Window, item: &Item) -> (LogicalPosition, LogicalSize) {

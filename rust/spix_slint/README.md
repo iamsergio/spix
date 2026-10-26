@@ -10,7 +10,7 @@ spix_slint::start(9000, [("mainWindow", window.as_weak())])?;
 window.run()?;
 ```
 
-`start` listens on `127.0.0.1:<port>` and answers these calls: clicks, key and
+`start` listens on `127.0.0.1:<port>` and answers these calls: clicks, `mouseWheel`, key and
 text input, `existsAndVisible`, get and set of `text`, `checked`, `enabled` and `count`,
 `truncated` (see below), `getBoundingBox`, `takeScreenshot`, `wait`, `quit` and `getErrors`.
 Anything else is a fault reading `unsupported`.

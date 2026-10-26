@@ -61,6 +61,14 @@ AnyRpcServer::AnyRpcServer(int anyrpcPort)
         "Double-click the left mouse button on the object at the given path | mouseDoubleClick(string path)",
         [this](std::string path) { mouseDoubleClick(std::move(path)); });
 
+    utils::AddFunctionToAnyRpc<void(std::string, int, int, int, int)>(methodManager, "mouseWheel",
+        "Turn the mouse wheel over the object at the given path, in steps events intervalMs apart. The deltas are "
+        "Qt's angleDelta, 120 is one notch, a positive y scrolls up | "
+        "mouseWheel(string path, int angleDeltaX, int angleDeltaY, int steps, int intervalMs)",
+        [this](std::string path, int angleDeltaX, int angleDeltaY, int steps, int intervalMs) {
+            mouseWheel(std::move(path), angleDeltaX, angleDeltaY, steps, std::chrono::milliseconds(intervalMs));
+        });
+
     utils::AddFunctionToAnyRpc<void(std::string)>(methodManager, "mouseBeginDrag",
         "Begin a drag with the mouse | mouseBeginDrag(string path)",
         [this](std::string path) { mouseBeginDrag(std::move(path)); });

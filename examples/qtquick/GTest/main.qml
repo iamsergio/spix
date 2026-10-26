@@ -66,6 +66,24 @@ Window {
         }
     }
 
+    // Taller than it shows, for the mouse wheel to scroll.
+    ListView {
+        objectName: "scrollList"
+        anchors {
+            top: parent.top
+            left: parent.horizontalCenter
+            right: parent.right
+            bottom: parent.verticalCenter
+        }
+        clip: true
+        model: 50
+        delegate: Rectangle {
+            width: ListView.view.width
+            height: 40
+            color: index % 2 ? "#333333" : "#444444"
+        }
+    }
+
     ResultsView {
         id: resultsView
         anchors {

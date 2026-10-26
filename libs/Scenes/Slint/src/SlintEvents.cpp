@@ -147,6 +147,12 @@ slint::LogicalPosition windowPos(const SlintItem& item, Point loc)
     return slint::LogicalPosition({static_cast<float>(origin.x + loc.x), static_cast<float>(origin.y + loc.y)});
 }
 
+// Logical pixels per notch of a mouse wheel: Slint's winit backend scrolls 60 for a
+// `MouseScrollDelta::LineDelta` of 1 (i-slint-backend-winit, winitwindowadapter.rs, `lx * 60.`).
+constexpr float pixelsPerNotch = 60.0f;
+// Qt's `angleDelta` of one notch: 15 degrees in eighths of a degree.
+constexpr float anglePerNotch = 120.0f;
+
 } // namespace
 
 void SlintEvents::mouseDown(Item* item, Point loc, MouseButton button, KeyModifier mod)
@@ -178,6 +184,17 @@ void SlintEvents::mouseMove(Item* item, Point loc)
     if (!slintItem)
         return;
     slintItem->window()->dispatch_pointer_move_event(windowPos(*slintItem, loc));
+}
+
+void SlintEvents::mouseWheel(Item* item, Point loc, Point angleDelta)
+{
+    auto* slintItem = dynamic_cast<SlintItem*>(item);
+    if (!slintItem)
+        return;
+    // A positive y scrolls the content towards its start, as a positive Slint delta does.
+    slintItem->window()->dispatch_pointer_scroll_event(windowPos(*slintItem, loc),
+        static_cast<float>(angleDelta.x) / anglePerNotch * pixelsPerNotch,
+        static_cast<float>(angleDelta.y) / anglePerNotch * pixelsPerNotch);
 }
 
 void SlintEvents::stringInput(Item* item, const std::string& text)

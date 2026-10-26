@@ -13,6 +13,7 @@
 
 #include <QApplication>
 #include <QObject>
+#include <QWheelEvent>
 #include <QWidget>
 
 #include <QDragEnterEvent>
@@ -182,6 +183,20 @@ void QtWidgetsEvents::mouseMove(Item* item, Point loc)
     mouseMoveEvent = new QMouseEvent(QEvent::MouseMove, widgetLoc, widget->mapToGlobal(widgetLoc),
         Qt::MouseButton::NoButton, activeButtons, Qt::NoModifier);
     QApplication::postEvent(widget, mouseMoveEvent);
+}
+
+void QtWidgetsEvents::mouseWheel(Item* item, Point loc, Point angleDelta)
+{
+    QPoint widgetLoc;
+    auto widget = getWidgetAndPositionForItem(item, loc, widgetLoc);
+    if (!widget)
+        return;
+
+    // What a physical mouse wheel sends: no pixel delta, no modifiers, no scroll phase.
+    Qt::MouseButtons activeButtons = getQtMouseButtonValue(m_pressedMouseButtons);
+    QWheelEvent* event = new QWheelEvent(QPointF(widgetLoc), QPointF(widget->mapToGlobal(widgetLoc)), QPoint(),
+        QPoint(qRound(angleDelta.x), qRound(angleDelta.y)), activeButtons, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QApplication::postEvent(widget, event);
 }
 
 void QtWidgetsEvents::stringInput(Item* item, const std::string& text)

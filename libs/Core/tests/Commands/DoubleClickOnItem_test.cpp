@@ -73,6 +73,7 @@ TEST(DoubleClickOnItemTest, DefaultImplementationPressesAndReleasesTwice)
             presses->push_back(false);
         }
         void mouseMove(spix::Item*, spix::Point) override {}
+        void mouseWheel(spix::Item*, spix::Point, spix::Point) override {}
         void stringInput(spix::Item*, const std::string&) override {}
         void keyPress(spix::Item*, int, spix::KeyModifier) override {}
         void keyRelease(spix::Item*, int, spix::KeyModifier) override {}
