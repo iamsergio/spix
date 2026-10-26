@@ -12,7 +12,7 @@ window.run()?;
 
 `start` listens on `127.0.0.1:<port>` and answers these calls: clicks, `mouseWheel`, key and
 text input, `existsAndVisible`, get and set of `text`, `checked`, `enabled` and `count`,
-`truncated` (see below), `getBoundingBox`, `takeScreenshot`, `wait`, `quit` and `getErrors`.
+`truncated` and `frameCount` (see below), `getBoundingBox`, `takeScreenshot`, `wait`, `quit` and `getErrors`.
 Anything else is a fault reading `unsupported`.
 
 - **Paths** are `<window>/<id>/<id>/...`: the first segment names a window registered with
@@ -24,6 +24,13 @@ Anything else is a fault reading `unsupported`.
   size and no elision, so an app sets the description itself where its tests need the answer, for
   example `accessible-description: self.preferred-width > self.width ? "truncated" : "";` on a
   `Text` with `overflow: elide`.
+- **`frameCount`**, read from the window itself (`getStringProperty("mainWindow", "frameCount")`),
+  is the number of frames the window has drawn: Spix counts `RenderingState::AfterRendering`. The
+  first read starts the counting and returns `0`, so an app whose tests never ask pays nothing, and
+  a caller works with the difference between two reads. Spix takes the window's rendering notifier
+  for this (a window has one), so the property is absent, the empty string as for any unknown
+  property, when the app has set its own notifier or the renderer has none: the testing backend's
+  software renderer, for one. Use a GPU renderer (`SLINT_BACKEND=winit`) to count.
 - **Threading**: the listener thread hands each call to the GUI thread with
   `slint::invoke_from_event_loop`, where it runs as a future (clicks wait on Slint's timers), and
   waits for the answer; `wait` sleeps on the listener thread so

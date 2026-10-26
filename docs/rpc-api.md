@@ -115,6 +115,14 @@ s.enterKey("mainWindow/textField", 65, 2)
 | `getBoundingBox` | `getBoundingBox(path) -> [x, y, width, height]` | Get item bounds in screen coordinates |
 | `existsAndVisible` | `existsAndVisible(path) -> bool` | Check if item exists and is visible |
 
+Properties are read from the item's Qt properties (Qt Quick); Slint elements answer `text`,
+`checked`, `enabled`, `count` and `truncated`. A window item also answers `frameCount`, the number
+of frames it has drawn, as a difference between two reads: the first read starts the counting and
+returns `0`, so apps that never ask pay nothing. Qt Quick counts `QQuickWindow::frameSwapped`
+(whether it fires depends on the platform plugin); the Rust Slint server counts
+`RenderingState::AfterRendering` with the window's rendering notifier, which it then takes, and
+answers the empty string where that isn't possible (see `rust/spix_slint/README.md`).
+
 ```python
 # Read text property
 text = s.getStringProperty("mainWindow/label", "text")
