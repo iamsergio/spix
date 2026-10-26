@@ -295,6 +295,19 @@ fn properties(port: u16) -> Result<(), String> {
         Answer::Text("Hello".to_owned())
     );
 
+    // The testing backend's renderer takes no rendering notifier, so the window can't count its
+    // frames: the property is absent, which is the empty string, and stays so on a second read.
+    for _ in 0..2 {
+        assert_eq!(
+            call(
+                port,
+                "getStringProperty",
+                &[path("mainWindow"), property("frameCount")]
+            )?,
+            Answer::Text(String::new())
+        );
+    }
+
     let bounds = call(port, "getBoundingBox", &[path("mainWindow/button")])?;
     let Answer::Array(bounds) = bounds else {
         return Err(format!("the bounding box of a button is {bounds:?}"));

@@ -11,6 +11,10 @@
 #include <QtItem.h>
 #include <QtItemTools.h>
 
+#include <QGuiApplication>
+#include <QQuickItem>
+#include <QQuickWindow>
+
 #include "QtTestUtils.h"
 
 using Variant = spix::Variant;
@@ -156,3 +160,33 @@ TEST_F(QtItemTestWithQMLEngine, InvokeHandlesReturnType)
 }
 
 #endif // Qt >= 6.0.0
+
+// A window needs a GUI application, which the fixture above doesn't make. The offscreen platform
+// has a screen and no display, so it runs anywhere.
+class QtItemTestWithWindow : public ::testing::Test {
+public:
+    QtItemTestWithWindow() { qputenv("QT_QPA_PLATFORM", "offscreen"); }
+
+private:
+    int m_argc = 1;
+    char m_name[5] = "test";
+    char* m_argv[2] = {m_name, nullptr};
+    QGuiApplication m_app {m_argc, m_argv};
+};
+
+TEST_F(QtItemTestWithWindow, FrameCountStartsAtZeroAndCountsSwappedFrames)
+{
+    QQuickWindow window;
+    QQuickItem item(window.contentItem());
+
+    // Frames before the first read are not counted: nobody asked.
+    emit window.frameSwapped();
+    EXPECT_EQ(spix::QtItem(&window).stringProperty("frameCount"), "0");
+
+    emit window.frameSwapped();
+    emit window.frameSwapped();
+    EXPECT_EQ(spix::QtItem(&window).stringProperty("frameCount"), "2");
+
+    // Only a window has frames: an item has no such property.
+    EXPECT_EQ(spix::QtItem(&item).stringProperty("frameCount"), "");
+}

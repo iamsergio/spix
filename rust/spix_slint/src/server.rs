@@ -10,7 +10,7 @@
 //! live there. `wait` sleeps on the listener thread so that the app keeps running while it waits,
 //! and `quit` only tells the event loop to stop, from wherever it is called.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::rc::Rc;
@@ -79,6 +79,9 @@ thread_local! {
 struct Spix {
     windows: Vec<(String, Box<dyn WindowSource>)>,
     errors: Vec<String>,
+    /// The frame counters of the windows whose `frameCount` was read, by the address of the
+    /// `Window`: a component's window lives as long as the component, and the counter with it.
+    frames: Vec<(usize, Rc<Cell<u64>>)>,
 }
 
 impl Spix {
@@ -86,6 +89,7 @@ impl Spix {
         Self {
             windows: Vec::new(),
             errors: Vec::new(),
+            frames: Vec::new(),
         }
     }
 }
@@ -115,6 +119,45 @@ fn register<T: ComponentHandle + 'static>(name: &str, window: Weak<T>) {
             .windows
             .push((name.to_owned(), Box::new(Registered(window))));
     });
+}
+
+/// What `getStringProperty` answers for `name` on `item`: what the scene knows, and the frame count
+/// of a window, which lives here with the rendering notifiers.
+fn read_property(window: &Window, item: &Item, name: &str) -> Option<String> {
+    match (item, name) {
+        (Item::Window, "frameCount") => frame_count(window),
+        _ => scene::string_property(item, name),
+    }
+}
+
+/// The frames `window` has drawn since the first time this was asked, which is 0. Counting starts
+/// there, with a rendering notifier on the window, so an app whose tests never ask pays nothing.
+///
+/// `None` when the window can't be counted: its renderer has no notifier support (the testing
+/// backend's software renderer), or the app already installed a notifier, a window having one.
+fn frame_count(window: &Window) -> Option<String> {
+    let key = std::ptr::from_ref(window) as usize;
+    let known = SPIX.with(|spix| {
+        spix.borrow()
+            .frames
+            .iter()
+            .find(|(counted, _)| *counted == key)
+            .map(|(_, frames)| frames.get())
+    });
+    if let Some(frames) = known {
+        return Some(frames.to_string());
+    }
+    let frames = Rc::new(Cell::new(0_u64));
+    let counter = Rc::clone(&frames);
+    window
+        .set_rendering_notifier(move |state, _api| {
+            if matches!(state, slint::RenderingState::AfterRendering) {
+                counter.set(counter.get() + 1);
+            }
+        })
+        .ok()?;
+    SPIX.with(|spix| spix.borrow_mut().frames.push((key, frames)));
+    Some("0".to_owned())
 }
 
 /// Keeps `message` for the next [`getErrors`](execute), as C++ Spix keeps its command errors.
@@ -286,8 +329,8 @@ async fn execute(call: Call) -> Result<Value, Fault> {
             let path = string_param(params, 0)?;
             let name = string_param(params, 1)?;
             let mut value = None;
-            with_item(path, "GetProperty", &mut |_window, item| {
-                value = scene::string_property(item, name);
+            with_item(path, "GetProperty", &mut |window, item| {
+                value = read_property(window, item, name);
             });
             Ok(Value::String(value.unwrap_or_default()))
         }

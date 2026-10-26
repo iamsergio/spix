@@ -47,8 +47,32 @@ Rect QtItem::bounds() const
     return bounds;
 }
 
+namespace {
+
+// The frames a window has drawn, counted from the first time they are asked for. The count lives in
+// a child of the window, so it goes with it and nothing is hooked into windows nobody asks about.
+std::string frameCount(QQuickWindow* window)
+{
+    static const char* counterName = "spixFrameCounter";
+    auto counter = window->findChild<QObject*>(counterName, Qt::FindDirectChildrenOnly);
+    if (!counter) {
+        counter = new QObject(window);
+        counter->setObjectName(counterName);
+        counter->setProperty("count", QVariant::fromValue<quint64>(0));
+        QObject::connect(window, &QQuickWindow::frameSwapped, counter, [counter] {
+            counter->setProperty("count", QVariant::fromValue<quint64>(counter->property("count").toULongLong() + 1));
+        });
+    }
+    return std::to_string(counter->property("count").toULongLong());
+}
+
+} // namespace
+
 std::string QtItem::stringProperty(const std::string& name) const
 {
+    if (name == "frameCount" && std::holds_alternative<QQuickWindow*>(m_item))
+        return frameCount(std::get<QQuickWindow*>(m_item));
+
     auto value = qobject()->property(name.c_str());
     return value.toString().toStdString();
 }
