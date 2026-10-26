@@ -47,6 +47,7 @@ protected:
         ::testing::InitGoogleTest(&m_argc, m_argv);
         auto testResult = RUN_ALL_TESTS();
         m_result.store(testResult);
+        quit();
     }
 };
 
@@ -91,8 +92,40 @@ Button 2 shift control clicked)RSLT";
     EXPECT_EQ(result, expected_result);
 
     EXPECT_EQ(srv->getErrors(), std::vector<std::string> {});
+}
 
-    srv->quit();
+// How far the list has scrolled towards its end, in pixels, once it has come to rest: Slint
+// animates the scroll.
+static int scrolled()
+{
+    srv->wait(std::chrono::milliseconds(500));
+    return std::stoi(srv->getStringProperty("mainWindow/scrollPosition", "text"));
+}
+
+TEST(GTestExample, MouseWheelScrollsList)
+{
+    const spix::ItemPath list("mainWindow/scrollList");
+    const auto noWait = std::chrono::milliseconds(0);
+    ASSERT_EQ(scrolled(), 0);
+
+    // A negative y turns the wheel towards the user, which moves the content towards its end.
+    srv->mouseWheel(list, 0, -120, 1, noWait);
+    const int oneStep = scrolled();
+    EXPECT_GT(oneStep, 0);
+
+    // A positive y goes back.
+    srv->mouseWheel(list, 0, 120, 1, noWait);
+    EXPECT_EQ(scrolled(), 0);
+
+    // Three steps, spread over an interval, go further than one.
+    srv->mouseWheel(list, 0, -120, 3, std::chrono::milliseconds(50));
+    EXPECT_GT(scrolled(), oneStep);
+
+    // Bad arguments are errors.
+    srv->mouseWheel(list, 0, -120, 0, noWait);
+    srv->mouseWheel(list, 0, -120, 1, std::chrono::milliseconds(-1));
+    srv->mouseWheel(spix::ItemPath("mainWindow/nope"), 0, -120, 1, noWait);
+    EXPECT_EQ(srv->getErrors().size(), 3u);
 }
 
 int main(int argc, char* argv[])

@@ -39,11 +39,31 @@ print(s.system.methodHelp('mouseClick'))
 | `mouseClickWithButton` | `mouseClickWithButton(path, button, modifier)` | Click with specific button and modifiers |
 | `mouseClickWithOffset` | `mouseClickWithOffset(path, offsetX, offsetY)` | Click with pixel offset from top-left |
 | `mouseClickWithProportion` | `mouseClickWithProportion(path, propX, propY)` | Click at proportional position (0.0-1.0) |
+| `mouseWheel` | `mouseWheel(path, angleDeltaX, angleDeltaY, steps, intervalMs)` | Turn the mouse wheel over item center, `steps` times, `intervalMs` apart |
 | `mouseBeginDrag` | `mouseBeginDrag(path)` | Begin drag operation |
 | `mouseEndDrag` | `mouseEndDrag(path)` | End drag operation |
 | `mouseDropUrls` | `mouseDropUrls(path, [url1, url2, ...])` | Drop URLs (file paths) onto item |
 
 **Mouse buttons:** `1` = Left, `2` = Right, `4` = Middle
+
+**Mouse wheel:** the deltas follow Qt's `QWheelEvent::angleDelta()`: eighths of a degree, `120` is
+one notch of a normal wheel. A positive `angleDeltaY` (wheel turned away from the user) scrolls the
+content towards its start, a negative one towards its end; a positive `angleDeltaX` scrolls left.
+`steps` (at least 1) events go to the center of the item, with `intervalMs` (0 or more) between two
+of them while the app keeps running its event loop; a single step doesn't wait. One call plays a
+whole scroll gesture, so no RPC round trip falls into a measurement taken while the app scrolls.
+Invalid arguments and an unknown path are errors.
+
+- **C++ servers** (QtQuick, QtWidgets, Slint): the steps are queued as commands, with a `wait`
+  between them, and the call returns once they are queued. The queue is FIFO, so a following
+  blocking call (`getStringProperty`, `existsAndVisible`, ...) returns only after the last step
+  ran. The Qt scenes post the wheel events to the window, so the app may still be handling the
+  last one, and a scroll view that animates (QtQuick, Slint) glides on after it: wait before
+  reading a position. Errors are reported in `getErrors`. On Slint, one notch scrolls 60 logical
+  pixels, as a wheel does under Slint's winit backend.
+- **`spix_slint`**: the call answers after the last step. Invalid `steps` or `intervalMs` is an
+  `unsupported` fault, like any other parameter it can't take; an unknown path goes into
+  `getErrors`. One notch scrolls 60 logical pixels, as above.
 
 **Key modifiers:** `0` = None, `1` = Shift, `2` = Control, `4` = Alt, `8` = Meta
 

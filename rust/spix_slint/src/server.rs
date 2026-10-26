@@ -13,13 +13,15 @@
 use std::cell::RefCell;
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
+use std::rc::Rc;
 use std::sync::mpsc;
+use std::task::{Poll, Waker};
 use std::thread;
 use std::time::Duration;
 
 use i_slint_backend_testing::{ElementHandle, ElementRoot};
 use slint::platform::PointerEventButton;
-use slint::{ComponentHandle, Weak, Window};
+use slint::{ComponentHandle, Timer, Weak, Window};
 
 use crate::input;
 use crate::scene::{self, Item};
@@ -247,6 +249,7 @@ async fn execute(call: Call) -> Result<Value, Fault> {
             double_click(path, "DoubleClickOnItem").await;
             Ok(empty())
         }
+        "mouseWheel" => mouse_wheel(params).await,
         "inputText" => {
             let path = string_param(params, 0)?;
             let text = string_param(params, 1)?;
@@ -375,6 +378,65 @@ async fn click(path: &str, command: &str, button: PointerEventButton, modifiers:
         }
         true
     });
+}
+
+/// `mouseWheel`: validates the numbers, then turns the wheel (see [`wheel`]).
+async fn mouse_wheel(params: &[Value]) -> Result<Value, Fault> {
+    let path = string_param(params, 0)?;
+    let angle_x = int_param(params, 1)?;
+    let angle_y = int_param(params, 2)?;
+    let steps = int_param(params, 3)?;
+    let interval = int_param(params, 4)?;
+    // Bad numbers are refused as a button that doesn't exist is.
+    if steps < 1 || interval < 0 {
+        return Err(Fault::unsupported());
+    }
+    let interval = Duration::from_millis(u64::from(interval.unsigned_abs()));
+    wheel(path, angle_x, angle_y, steps, interval).await;
+    Ok(empty())
+}
+
+/// Turns the wheel `steps` times over the centre of the item at `path`, `interval` apart. The
+/// pause is a Slint timer that the future awaits, so the event loop runs through it.
+async fn wheel(path: &str, angle_x: i32, angle_y: i32, steps: i32, interval: Duration) {
+    let Some((window_name, item)) = resolve(path, "Wheel") else {
+        return;
+    };
+    for step in 0..steps {
+        if step > 0 {
+            sleep(interval).await;
+        }
+        let alive = with_window(&window_name, &mut |window, _| {
+            input::wheel(window, scene::center(window, &item), angle_x, angle_y);
+            true
+        });
+        if !alive {
+            return;
+        }
+    }
+}
+
+/// Waits `duration` on a Slint timer, which only fires while the event loop runs.
+async fn sleep(duration: Duration) {
+    let state = Rc::new(RefCell::new((false, None::<Waker>)));
+    let timer_state = Rc::clone(&state);
+    Timer::single_shot(duration, move || {
+        let mut state = timer_state.borrow_mut();
+        state.0 = true;
+        if let Some(waker) = state.1.take() {
+            waker.wake();
+        }
+    });
+    std::future::poll_fn(move |context| {
+        let mut state = state.borrow_mut();
+        if state.0 {
+            Poll::Ready(())
+        } else {
+            state.1 = Some(context.waker().clone());
+            Poll::Pending
+        }
+    })
+    .await;
 }
 
 /// Double-clicks the item at `path` with Slint's own `double_click` (see [`click`]).

@@ -46,6 +46,7 @@ protected:
         ::testing::InitGoogleTest(&m_argc, m_argv);
         auto testResult = RUN_ALL_TESTS();
         m_result.store(testResult);
+        quit();
     }
 };
 
@@ -100,8 +101,42 @@ Button 2 clicked)RSLT";
     EXPECT_EQ(result, expected_result);
 
     EXPECT_EQ(srv->getErrors(), std::vector<std::string> {});
+}
 
-    srv->quit();
+// The position of the list's content, in pixels from its start, once it has come to rest: the wheel
+// events are posted to the window, and a Flickable glides on after the last one.
+static double contentY()
+{
+    srv->wait(std::chrono::milliseconds(1000));
+    return std::stod(srv->getStringProperty("mainWindow/scrollList", "contentY"));
+}
+
+TEST(GTestExample, MouseWheelScrollsList)
+{
+    const spix::ItemPath list("mainWindow/scrollList");
+    const auto noWait = std::chrono::milliseconds(0);
+    ASSERT_EQ(contentY(), 0.0);
+
+    // A negative y turns the wheel towards the user, which moves the content towards its end.
+    srv->mouseWheel(list, 0, -120, 1, noWait);
+    const double oneStep = contentY();
+    EXPECT_GT(oneStep, 0.0);
+
+    // A positive y goes back.
+    srv->mouseWheel(list, 0, 120, 1, noWait);
+    EXPECT_LT(contentY(), oneStep);
+
+    // Back at the start, three steps, spread over an interval, go further than one.
+    srv->mouseWheel(list, 0, 120, 5, noWait);
+    ASSERT_EQ(contentY(), 0.0);
+    srv->mouseWheel(list, 0, -120, 3, std::chrono::milliseconds(50));
+    EXPECT_GT(contentY(), oneStep);
+
+    // Bad arguments are errors.
+    srv->mouseWheel(list, 0, -120, 0, noWait);
+    srv->mouseWheel(list, 0, -120, 1, std::chrono::milliseconds(-1));
+    srv->mouseWheel(spix::ItemPath("mainWindow/nope"), 0, -120, 1, noWait);
+    EXPECT_EQ(srv->getErrors().size(), 3u);
 }
 
 int main(int argc, char* argv[])

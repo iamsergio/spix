@@ -15,6 +15,8 @@ use i_slint_backend_testing::testing_backend::TestingBackendOptions;
 use slint::ComponentHandle;
 
 slint::slint! {
+    import { ListView } from "std-widgets.slint";
+
     export component ServerTestWindow inherits Window {
         in-out property <int> clicks;
         in-out property <int> menu-clicks;
@@ -53,6 +55,30 @@ slint::slint! {
             y: 60px;
             width: 80px;
             height: 30px;
+        }
+
+        // Taller than it shows, to be scrolled by the wheel.
+        list := ListView {
+            accessible-id: "scroller";
+            x: 200px;
+            y: 100px;
+            width: 90px;
+            height: 80px;
+
+            for index in 20: Rectangle {
+                height: 20px;
+            }
+        }
+
+        // How far the list has scrolled towards its end, in pixels.
+        Rectangle {
+            accessible-role: button;
+            accessible-id: "scrolled";
+            accessible-value: Math.round(-list.content-y / 1px);
+            x: 100px;
+            y: 0;
+            width: 10px;
+            height: 10px;
         }
 
         // A known colour and size, for `takeScreenshot`.
@@ -176,6 +202,7 @@ fn drive(port: u16) -> Result<(), String> {
     text(port)?;
     keys(port)?;
     waiting(port)?;
+    wheel(port)?;
     errors(port)?;
     screenshots(port)?;
 
@@ -369,6 +396,90 @@ fn waiting(port: u16) -> Result<(), String> {
     Ok(())
 }
 
+/// What an element says its `text` is.
+fn text_of_item(port: u16, at: &str) -> Result<String, String> {
+    match call(port, "getStringProperty", &[path(at), property("text")])? {
+        Answer::Text(text) => Ok(text),
+        other => Err(format!("the text of {at} is {other:?}")),
+    }
+}
+
+/// How far the list has scrolled towards its end.
+fn scrolled(port: u16) -> Result<i32, String> {
+    text_of_item(port, "mainWindow/scrolled")?
+        .parse()
+        .map_err(|error| format!("the scroll position is no number: {error}"))
+}
+
+/// One call of the wheel: `steps` turns of `angle_y` over the list, `interval` milliseconds apart.
+fn wheel_call(port: u16, angle_y: i32, steps: i32, interval: i32) -> Result<Answer, String> {
+    call(
+        port,
+        "mouseWheel",
+        &[
+            path("mainWindow/scroller"),
+            value("<int>0</int>"),
+            value(&format!("<int>{angle_y}</int>")),
+            value(&format!("<int>{steps}</int>")),
+            value(&format!("<int>{interval}</int>")),
+        ],
+    )
+}
+
+/// The wheel scrolls a list: a negative y moves the content towards its end and a positive one
+/// back, more steps go further, and the steps are spread over the interval between them.
+fn wheel(port: u16) -> Result<(), String> {
+    assert_eq!(scrolled(port)?, 0);
+
+    wheel_call(port, -120, 1, 0)?;
+    let one = scrolled(port)?;
+    assert!(one > 0, "a negative y scrolls towards the end: {one}");
+
+    wheel_call(port, 120, 1, 0)?;
+    assert_eq!(scrolled(port)?, 0, "a positive y scrolls back to the start");
+
+    let started = Instant::now();
+    wheel_call(port, -120, 3, 40)?;
+    let three = scrolled(port)?;
+    assert!(
+        three > one,
+        "three steps ({three}) go further than one ({one})"
+    );
+    assert!(
+        started.elapsed() >= Duration::from_millis(80),
+        "the call returned after {:?}, before the two intervals were up",
+        started.elapsed()
+    );
+
+    for bad in [(0, 0), (-1, 0), (1, -1)] {
+        assert_eq!(
+            wheel_call(port, -120, bad.0, bad.1),
+            Err("unsupported".to_owned()),
+            "steps {} and interval {}",
+            bad.0,
+            bad.1
+        );
+    }
+    assert_eq!(scrolled(port)?, three, "a refused call scrolls nothing");
+
+    call(
+        port,
+        "mouseWheel",
+        &[
+            path("mainWindow/nope"),
+            value("<int>0</int>"),
+            value("<int>-120</int>"),
+            value("<int>2</int>"),
+            value("<int>10</int>"),
+        ],
+    )?;
+    assert_eq!(
+        call(port, "getErrors", &[])?,
+        Answer::Array(vec!["Wheel: Item not found: mainWindow/nope".to_owned()])
+    );
+    Ok(())
+}
+
 /// A screenshot of an element is a PNG of its size and colour, written before the call answers.
 fn screenshots(port: u16) -> Result<(), String> {
     let file = std::env::temp_dir().join(format!("spix_slint_swatch_{}.png", std::process::id()));
@@ -400,7 +511,8 @@ fn screenshots(port: u16) -> Result<(), String> {
 }
 
 /// A path that isn't there is an error the client reads on the next call, not a fault; everything
-/// outside the protocol is a fault, not a call that quietly did nothing.
+/// outside the protocol is a fault, not a call that quietly did nothing. The wheel's own missing
+/// path, from earlier, is the first entry.
 fn errors(port: u16) -> Result<(), String> {
     assert_eq!(
         call(
@@ -413,6 +525,7 @@ fn errors(port: u16) -> Result<(), String> {
     assert_eq!(
         call(port, "getErrors", &[])?,
         Answer::Array(vec![
+            "Wheel: Item not found: mainWindow/nope".to_owned(),
             "GetProperty: Item not found: mainWindow/nope".to_owned()
         ])
     );
@@ -428,6 +541,7 @@ fn errors(port: u16) -> Result<(), String> {
     assert_eq!(
         call(port, "getErrors", &[])?,
         Answer::Array(vec![
+            "Wheel: Item not found: mainWindow/nope".to_owned(),
             "GetProperty: Item not found: mainWindow/nope".to_owned(),
             "TakeScreenshot: Item not found: mainWindow/nope".to_owned()
         ])

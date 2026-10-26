@@ -7,7 +7,26 @@
 //! events). Which key a Spix key code becomes is the mapping the C++ backend found.
 
 use slint::platform::{Key, PointerEventButton, WindowEvent};
-use slint::{SharedString, Window};
+use slint::{LogicalPosition, SharedString, Window};
+
+/// Logical pixels Slint scrolls for one notch of a mouse wheel: its winit backend multiplies a
+/// `MouseScrollDelta::LineDelta` by 60 (`i-slint-backend-winit` 1.18.1, `winitwindowadapter.rs`,
+/// the `WindowEvent::MouseWheel` arm).
+const PIXELS_PER_NOTCH: f32 = 60.0;
+/// Qt's `angleDelta` of one notch: eighths of a degree, 15 degrees.
+const ANGLE_PER_NOTCH: f32 = 120.0;
+
+/// Turns the wheel at `position` once by `angle_x` and `angle_y`, in Qt's `angleDelta` units. A
+/// positive y scrolls the content towards its start, and so does a positive Slint delta.
+#[allow(clippy::cast_precision_loss)] // Wheel deltas are small.
+pub(crate) fn wheel(window: &Window, position: LogicalPosition, angle_x: i32, angle_y: i32) {
+    let to_pixels = |angle: i32| angle as f32 / ANGLE_PER_NOTCH * PIXELS_PER_NOTCH;
+    window.dispatch_event(WindowEvent::PointerScrolled {
+        position,
+        delta_x: to_pixels(angle_x),
+        delta_y: to_pixels(angle_y),
+    });
+}
 
 /// A Spix mouse button: 1 = left, 2 = right, 4 = middle. None of them is no click.
 pub(crate) fn button(code: i32) -> Option<PointerEventButton> {

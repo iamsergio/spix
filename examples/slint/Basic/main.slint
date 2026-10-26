@@ -1,4 +1,6 @@
-// Same UI as examples/qtquick/Basic.
+// Same UI as examples/qtquick/Basic, plus the list of examples/qtquick/GTest.
+
+import { ListView } from "std-widgets.slint";
 
 component ExampleButton inherits Rectangle {
     in property <string> text;
@@ -67,6 +69,30 @@ export component MainWindow inherits Window {
             text: "Or Click Me";
             activated(what) => { root.append("Button 2 " + what); }
         }
+    }
+
+    // Taller than it shows, for the mouse wheel to scroll.
+    list := ListView {
+        accessible-id: "scrollList";
+        x: parent.width / 2;
+        y: 0px;
+        width: parent.width / 2;
+        height: parent.height / 2 - 20px;
+
+        for index in 50: Rectangle {
+            height: 40px;
+            background: mod(index, 2) == 0 ? #444444 : #333333;
+        }
+    }
+
+    // How far the list has scrolled towards its end, in pixels.
+    Text {
+        accessible-role: text;
+        accessible-id: "scrollPosition";
+        x: parent.width / 2;
+        y: parent.height / 2 - 20px;
+        text: Math.round(-list.content-y / 1px);
+        color: white;
     }
 
     Rectangle {

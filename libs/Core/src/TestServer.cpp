@@ -27,6 +27,7 @@
 #include <Commands/SetProperty.h>
 #include <Commands/Wait.h>
 #include <Commands/WaitForItem.h>
+#include <Commands/Wheel.h>
 
 #include <Spix/Events/Identifiers.h>
 
@@ -92,6 +93,28 @@ void TestServer::mouseClick(ItemPath path, MouseButton mouseButton, KeyModifier 
 void TestServer::mouseDoubleClick(ItemPath path)
 {
     m_cmdExec->enqueueCommand<cmd::DoubleClickOnItem>(path, spix::MouseButtons::Left, spix::KeyModifiers::None);
+}
+
+void TestServer::mouseWheel(
+    ItemPath path, int angleDeltaX, int angleDeltaY, int steps, std::chrono::milliseconds interval)
+{
+    if (steps < 1 || interval.count() < 0) {
+        // Reported when the queue gets to it, as every other command error is.
+        m_cmdExec->enqueueCommand<cmd::CustomCmd>(
+            [steps, interval](spix::CommandEnvironment& env) {
+                env.state().reportError("Wheel: invalid arguments: steps " + std::to_string(steps) + ", interval "
+                    + std::to_string(interval.count()) + " ms");
+            },
+            []() { return true; });
+        return;
+    }
+
+    Point angleDelta(angleDeltaX, angleDeltaY);
+    for (int step = 0; step < steps; ++step) {
+        if (step > 0)
+            m_cmdExec->enqueueCommand<cmd::Wait>(interval);
+        m_cmdExec->enqueueCommand<cmd::Wheel>(path, angleDelta);
+    }
 }
 
 void TestServer::mouseBeginDrag(ItemPath path)

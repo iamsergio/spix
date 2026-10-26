@@ -31,6 +31,10 @@ public:
         mouseUp(item, loc, button, mod);
     }
     virtual void mouseMove(Item* item, Point loc) = 0;
+    /// One turn of a mouse wheel at `loc` in the item's coordinates. `angleDelta` follows Qt's
+    /// `QWheelEvent::angleDelta()`: eighths of a degree, 120 is one notch of a normal wheel, and a
+    /// positive y (wheel turned away from the user) scrolls the content towards its start.
+    virtual void mouseWheel(Item* item, Point loc, Point angleDelta) = 0;
     virtual void stringInput(Item* item, const std::string& text) = 0;
     virtual void keyPress(Item* item, int keyCode, KeyModifier mod) = 0;
     virtual void keyRelease(Item* item, int keyCode, KeyModifier mod) = 0;

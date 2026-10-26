@@ -61,6 +61,8 @@ set(SOURCES
     src/Commands/Wait.h
     src/Commands/WaitForItem.cpp
     src/Commands/WaitForItem.h
+    src/Commands/Wheel.cpp
+    src/Commands/Wheel.h
 
     src/CommandExecuter/CommandEnvironment.cpp
     src/CommandExecuter/CommandExecuter.cpp
