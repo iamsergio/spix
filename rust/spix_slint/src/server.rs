@@ -74,14 +74,15 @@ thread_local! {
     /// on the GUI thread and only ever touched there: every call hops to it, `wait` and `quit`
     /// excepted because they touch neither.
     static SPIX: RefCell<Spix> = const { RefCell::new(Spix::new()) };
+    /// The frame counters of the windows whose `frameCount` was read, by the address of the
+    /// `Window`: a component's window lives as long as the component, and the counter with it.
+    /// Apart from [`SPIX`], as they are read and added while a call holds that to find the window.
+    static FRAMES: RefCell<Vec<(usize, Rc<Cell<u64>>)>> = const { RefCell::new(Vec::new()) };
 }
 
 struct Spix {
     windows: Vec<(String, Box<dyn WindowSource>)>,
     errors: Vec<String>,
-    /// The frame counters of the windows whose `frameCount` was read, by the address of the
-    /// `Window`: a component's window lives as long as the component, and the counter with it.
-    frames: Vec<(usize, Rc<Cell<u64>>)>,
 }
 
 impl Spix {
@@ -89,7 +90,6 @@ impl Spix {
         Self {
             windows: Vec::new(),
             errors: Vec::new(),
-            frames: Vec::new(),
         }
     }
 }
@@ -137,9 +137,9 @@ fn read_property(window: &Window, item: &Item, name: &str) -> Option<String> {
 /// backend's software renderer), or the app already installed a notifier, a window having one.
 fn frame_count(window: &Window) -> Option<String> {
     let key = std::ptr::from_ref(window) as usize;
-    let known = SPIX.with(|spix| {
-        spix.borrow()
-            .frames
+    let known = FRAMES.with(|frames| {
+        frames
+            .borrow()
             .iter()
             .find(|(counted, _)| *counted == key)
             .map(|(_, frames)| frames.get())
@@ -156,7 +156,7 @@ fn frame_count(window: &Window) -> Option<String> {
             }
         })
         .ok()?;
-    SPIX.with(|spix| spix.borrow_mut().frames.push((key, frames)));
+    FRAMES.with(|counters| counters.borrow_mut().push((key, frames)));
     Some("0".to_owned())
 }
 
