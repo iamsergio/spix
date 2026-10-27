@@ -162,15 +162,15 @@ TEST_F(QtItemTestWithQMLEngine, InvokeHandlesReturnType)
 #endif // Qt >= 6.0.0
 
 // A window needs a GUI application, which the fixture above doesn't make. The offscreen platform
-// has a screen and no display, so it runs anywhere.
+// has a screen and no display, so it runs anywhere. It is picked by the application's arguments:
+// they are read when it is made, before the fixture's constructor body could set the environment.
 class QtItemTestWithWindow : public ::testing::Test {
-public:
-    QtItemTestWithWindow() { qputenv("QT_QPA_PLATFORM", "offscreen"); }
-
 private:
-    int m_argc = 1;
+    int m_argc = 3;
     char m_name[5] = "test";
-    char* m_argv[2] = {m_name, nullptr};
+    char m_platformOption[10] = "-platform";
+    char m_platform[10] = "offscreen";
+    char* m_argv[4] = {m_name, m_platformOption, m_platform, nullptr};
     QGuiApplication m_app {m_argc, m_argv};
 };
 
