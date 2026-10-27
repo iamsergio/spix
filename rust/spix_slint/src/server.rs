@@ -17,13 +17,13 @@ use std::rc::Rc;
 use std::sync::mpsc;
 use std::task::{Poll, Waker};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use i_slint_backend_testing::{ElementHandle, ElementRoot};
 use slint::platform::PointerEventButton;
 use slint::{ComponentHandle, Timer, Weak, Window};
 
-use crate::input;
+use crate::input::{self, Stroke};
 use crate::scene::{self, Item};
 use crate::xmlrpc::{self, Call, Value};
 
@@ -292,7 +292,8 @@ async fn execute(call: Call) -> Result<Value, Fault> {
             double_click(path, "DoubleClickOnItem").await;
             Ok(empty())
         }
-        "mouseWheel" => mouse_wheel(params).await,
+        // Played inside the app over time, so the call answers after the last event.
+        "mouseWheel" | "mouseDrag" => gesture(&call.method, params).await,
         "inputText" => {
             let path = string_param(params, 0)?;
             let text = string_param(params, 1)?;
@@ -439,6 +440,83 @@ async fn mouse_wheel(params: &[Value]) -> Result<Value, Fault> {
     Ok(empty())
 }
 
+/// A gesture over time: the mouse wheel or a drag.
+async fn gesture(method: &str, params: &[Value]) -> Result<Value, Fault> {
+    if method == "mouseWheel" {
+        mouse_wheel(params).await
+    } else {
+        mouse_drag(params).await
+    }
+}
+
+/// `mouseDrag`: validates the numbers, then plays the stroke (see [`drag`]).
+async fn mouse_drag(params: &[Value]) -> Result<Value, Fault> {
+    let path = string_param(params, 0)?;
+    let from = (number_param(params, 1)?, number_param(params, 2)?);
+    let to = (number_param(params, 3)?, number_param(params, 4)?);
+    let steps = int_param(params, 5)?;
+    let interval = int_param(params, 6)?;
+    let hold = int_param(params, 7)?;
+    // Bad numbers are refused as in `mouseWheel`.
+    if steps < 1 || interval < 0 || hold < 0 {
+        return Err(Fault::unsupported());
+    }
+    let milliseconds = |value: i32| Duration::from_millis(u64::from(value.unsigned_abs()));
+    drag(
+        path,
+        from,
+        to,
+        steps,
+        milliseconds(interval),
+        milliseconds(hold),
+    )
+    .await;
+    Ok(empty())
+}
+
+/// Drags with the left button over the item at `path`: presses at `from`, moves `steps` times in
+/// equal parts to `to`, holds still for `hold` and releases. The points are logical pixels from the
+/// item's top-left. The pauses are Slint timers that the future awaits, so the event loop runs
+/// through them. Move `k` is due `k * interval` after the press and the release `steps * interval +
+/// hold` after it, each counted from the press: a timer that fires late delays only its own event.
+async fn drag(
+    path: &str,
+    from: (f32, f32),
+    to: (f32, f32),
+    steps: i32,
+    interval: Duration,
+    hold: Duration,
+) {
+    let Some((window_name, item)) = resolve(path, "Drag") else {
+        return;
+    };
+    let send = |event: Stroke, at: (f32, f32)| {
+        with_window(&window_name, &mut |window, _| {
+            input::stroke(window, scene::offset(window, &item, at.0, at.1), event);
+            true
+        })
+    };
+    let start = Instant::now();
+    if !send(Stroke::Press, from) {
+        return;
+    }
+    for step in 1..=steps {
+        sleep_until(start + interval * step.unsigned_abs()).await;
+        // From the whole distance, not summed, so that rounding doesn't add up.
+        #[allow(clippy::cast_precision_loss)] // Step counts are small.
+        let done = step as f32 / steps as f32;
+        let at = (
+            from.0 + (to.0 - from.0) * done,
+            from.1 + (to.1 - from.1) * done,
+        );
+        if !send(Stroke::Move, at) {
+            return;
+        }
+    }
+    sleep_until(start + interval * steps.unsigned_abs() + hold).await;
+    send(Stroke::Release, to);
+}
+
 /// Turns the wheel `steps` times over the centre of the item at `path`, `interval` apart. The
 /// pause is a Slint timer that the future awaits, so the event loop runs through it.
 async fn wheel(path: &str, angle_x: i32, angle_y: i32, steps: i32, interval: Duration) {
@@ -456,6 +534,19 @@ async fn wheel(path: &str, angle_x: i32, angle_y: i32, steps: i32, interval: Dur
         if !alive {
             return;
         }
+    }
+}
+
+/// Waits until `deadline` on Slint timers, or not at all if it has passed. A timer counts whole
+/// milliseconds of its own clock and can fire a little early, so it waits again for what is left:
+/// an event is never sent before its time.
+async fn sleep_until(deadline: Instant) {
+    loop {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return;
+        }
+        sleep(left).await;
     }
 }
 
@@ -573,6 +664,16 @@ fn string_param(params: &[Value], index: usize) -> Result<&str, Fault> {
 fn int_param(params: &[Value], index: usize) -> Result<i32, Fault> {
     match params.get(index) {
         Some(Value::Int(number)) => Ok(*number),
+        _ => Err(Fault::unsupported()),
+    }
+}
+
+/// A coordinate, which a client may send as an int or a double.
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)] // Pixels are small.
+fn number_param(params: &[Value], index: usize) -> Result<f32, Fault> {
+    match params.get(index) {
+        Some(Value::Int(number)) => Ok(*number as f32),
+        Some(Value::Double(number)) => Ok(*number as f32),
         _ => Err(Fault::unsupported()),
     }
 }

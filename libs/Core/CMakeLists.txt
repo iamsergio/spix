@@ -49,6 +49,8 @@ set(SOURCES
     src/Commands/InputText.h
     src/Commands/InvokeMethod.cpp
     src/Commands/InvokeMethod.h
+    src/Commands/Pointer.cpp
+    src/Commands/Pointer.h
     src/Commands/Quit.cpp
     src/Commands/Quit.h
     src/Commands/Screenshot.cpp
