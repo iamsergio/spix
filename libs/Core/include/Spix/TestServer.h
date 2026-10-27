@@ -59,6 +59,17 @@ public:
     /// units, see Events::mouseWheel. Returns once the commands are queued.
     void mouseWheel(ItemPath path, int angleDeltaX, int angleDeltaY, int steps, std::chrono::milliseconds interval);
 
+    /// Drags with the left button over the item: presses at `from`, moves `steps` times (at least 1)
+    /// along the straight line to `to`, each by the same distance, holds still at `to` for `hold` so
+    /// that a flickable sees no velocity on release, and releases. The points are in logical pixels
+    /// from the item's top-left. Move k is due `k * interval` after the press and the release
+    /// `steps * interval + hold` after it, so the velocity is constant and the stroke lasts that
+    /// long however coarse the executer's ticks are: a move can run up to one tick late, but a late
+    /// move doesn't delay the later ones. The whole gesture runs inside the app. Returns once the
+    /// commands are queued.
+    void mouseDrag(ItemPath path, Point from, Point to, int steps, std::chrono::milliseconds interval,
+        std::chrono::milliseconds hold);
+
     void mouseBeginDrag(ItemPath path);
     void mouseEndDrag(ItemPath path);
     void mouseDropUrls(ItemPath path, const std::vector<std::string>& urls);

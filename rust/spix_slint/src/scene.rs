@@ -69,6 +69,12 @@ pub(crate) fn center(window: &Window, item: &Item) -> LogicalPosition {
     LogicalPosition::new(at.x + size.width / 2.0, at.y + size.height / 2.0)
 }
 
+/// The point `dx`, `dy` logical pixels from the top-left of `item`, in window-logical coordinates.
+pub(crate) fn offset(window: &Window, item: &Item, dx: f32, dy: f32) -> LogicalPosition {
+    let (at, _) = geometry(window, item);
+    LogicalPosition::new(at.x + dx, at.y + dy)
+}
+
 /// Where the item is in the window and how big it is, all in logical pixels. `window.size()` is
 /// physical, and the window's own position on screen is none of this.
 fn geometry(window: &Window, item: &Item) -> (LogicalPosition, LogicalSize) {

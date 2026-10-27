@@ -28,6 +28,29 @@ pub(crate) fn wheel(window: &Window, position: LogicalPosition, angle_x: i32, an
     });
 }
 
+/// What the left button does at one point of a drag.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Stroke {
+    Press,
+    Move,
+    Release,
+}
+
+/// Sends one event of a left-button stroke to the window.
+pub(crate) fn stroke(window: &Window, position: LogicalPosition, event: Stroke) {
+    window.dispatch_event(match event {
+        Stroke::Press => WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        },
+        Stroke::Move => WindowEvent::PointerMoved { position },
+        Stroke::Release => WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        },
+    });
+}
+
 /// A Spix mouse button: 1 = left, 2 = right, 4 = middle. None of them is no click.
 pub(crate) fn button(code: i32) -> Option<PointerEventButton> {
     match code {

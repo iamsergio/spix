@@ -40,6 +40,7 @@ print(s.system.methodHelp('mouseClick'))
 | `mouseClickWithOffset` | `mouseClickWithOffset(path, offsetX, offsetY)` | Click with pixel offset from top-left |
 | `mouseClickWithProportion` | `mouseClickWithProportion(path, propX, propY)` | Click at proportional position (0.0-1.0) |
 | `mouseWheel` | `mouseWheel(path, angleDeltaX, angleDeltaY, steps, intervalMs)` | Turn the mouse wheel over item center, `steps` times, `intervalMs` apart |
+| `mouseDrag` | `mouseDrag(path, fromX, fromY, toX, toY, steps, intervalMs, holdMs)` | Drag with the left button from one point of the item to another |
 | `mouseBeginDrag` | `mouseBeginDrag(path)` | Begin drag operation |
 | `mouseEndDrag` | `mouseEndDrag(path)` | End drag operation |
 | `mouseDropUrls` | `mouseDropUrls(path, [url1, url2, ...])` | Drop URLs (file paths) onto item |
@@ -64,6 +65,34 @@ Invalid arguments and an unknown path are errors.
 - **`spix_slint`**: the call answers after the last step. Invalid `steps` or `intervalMs` is an
   `unsupported` fault, like any other parameter it can't take; an unknown path goes into
   `getErrors`. One notch scrolls 60 logical pixels, as above.
+
+**Mouse drag:** `mouseDrag` presses the left button at `(fromX, fromY)`, moves `steps` (at least 1)
+times along the straight line to `(toX, toY)`, each by the same distance, then holds still at `to`
+for `holdMs` (0 or more) and releases. Move `k` is due `k * intervalMs` (0 or more) after the press
+and the release `steps * intervalMs + holdMs` after it, so the velocity is constant and the stroke
+lasts that long, never less. The times count from the press, not from the previous event: an event
+that runs late (a C++ server runs its queue on a 10 ms tick, so a move can be up to one tick late;
+a Slint timer can be a little late under load) doesn't delay the later ones, and the stroke doesn't
+drift. The points are logical pixels from the item's top-left, ints or doubles. It drags a
+scroll view or a flickable by its content, as a finger or a mouse does. Slint's flickable flicks
+on release if the pointer moved within the last 100 ms, so hold longer than that to have the content
+stop where the drag ends. (A QtQuick Flickable did not flick after a drag with no hold in our
+tests, but a caller that wants the same gesture on every server holds all the same.) A toolkit may
+spend the first part of a drag on recognising it, so the content can move by less than the distance
+dragged: a QtQuick Flickable skipped the first two moves in our tests, a Slint flickable none. The
+whole gesture runs inside the app, so no RPC round trip falls into it. Invalid arguments and an unknown path are errors.
+
+- **C++ servers** (QtQuick, QtWidgets, Slint): the press, the moves, the waits and the release are
+  queued as commands, and the call returns once they are queued. The queue is FIFO, so a following
+  blocking call (`getStringProperty`, `existsAndVisible`, ...) returns only after the release ran,
+  which is how a caller waits for the end. The Qt scenes post the events to the window, so the app
+  may still be handling the last one, and a view that animates glides on after it: wait before
+  reading a position. Errors are reported in `getErrors`; an unknown path is reported once.
+- **`spix_slint`**: the call answers after the release, which is the end of the stroke. Invalid
+  `steps`, `intervalMs` or `holdMs` is an `unsupported` fault; an unknown path goes into
+  `getErrors`. Slint's `ListView` and `ScrollView` follow a mouse drag only with
+  `mouse-drag-pan-enabled: true`, and a `Flickable` starts one only if the pointer moved more than
+  8 px within 500 ms of the press.
 
 **Key modifiers:** `0` = None, `1` = Shift, `2` = Control, `4` = Alt, `8` = Meta
 
