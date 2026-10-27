@@ -36,11 +36,11 @@ pub enum Error {
     Unsupported,
 }
 
-/// Reads one `methodCall`. Only strings and ints arrive: what the Spix calls send.
+/// Reads one `methodCall`. Only strings, ints and doubles arrive: what the Spix calls send.
 ///
 /// # Errors
 ///
-/// If the request isn't a well-formed `methodCall` with parameters of those two types.
+/// If the request isn't a well-formed `methodCall` with parameters of those three types.
 pub fn decode_call(xml: &str) -> Result<Call, Error> {
     let document = Document::parse(xml)?;
     let root = document.root_element();
@@ -102,6 +102,9 @@ fn decode_value(node: &roxmltree::Node) -> Result<Value, Error> {
     match typed.tag_name().name() {
         "string" => Ok(Value::String(text.to_owned())),
         "int" | "i4" => Ok(Value::Int(
+            text.trim().parse().map_err(|_| malformed(&typed))?,
+        )),
+        "double" => Ok(Value::Double(
             text.trim().parse().map_err(|_| malformed(&typed))?,
         )),
         // Nothing in the protocol sends the other XML-RPC types.
@@ -199,6 +202,7 @@ mod tests {
             Value::String("hello & bye".to_owned())
         );
         assert_eq!(decode("<i4>-7</i4>"), Value::Int(-7));
+        assert_eq!(decode("<double>-2.5</double>"), Value::Double(-2.5));
         assert_eq!(decode("<string>x</string>"), Value::String("x".to_owned()));
     }
 

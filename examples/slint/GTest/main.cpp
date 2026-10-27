@@ -128,6 +128,53 @@ TEST(GTestExample, MouseWheelScrollsList)
     EXPECT_EQ(srv->getErrors().size(), 3u);
 }
 
+TEST(GTestExample, MouseDragScrollsList)
+{
+    const spix::ItemPath list("mainWindow/scrollList");
+    const auto noWait = std::chrono::milliseconds(0);
+    const auto interval = std::chrono::milliseconds(10);
+    const auto hold = std::chrono::milliseconds(200);
+    const size_t errorsBefore = srv->getErrors().size();
+
+    // The wheel test left the list scrolled, somewhere: everything below is relative to where it is.
+    const auto start = scrolled();
+
+    // Dragging the content up moves it towards its end, by the distance. The hold at the end is
+    // longer than the 100 ms after which Slint's flickable ignores the pointer's velocity, so it
+    // stays where the drag ends.
+    srv->mouseDrag(list, spix::Point(100, 180), spix::Point(100, 80), 20, interval, hold);
+    const int dragged = scrolled();
+    EXPECT_GT(dragged - start, 70);
+    EXPECT_LE(dragged - start, 100);
+    EXPECT_EQ(scrolled(), dragged);
+
+    // Dragging down moves it back.
+    srv->mouseDrag(list, spix::Point(100, 80), spix::Point(100, 160), 16, interval, hold);
+    EXPECT_LT(scrolled(), dragged - 30);
+    EXPECT_GE(scrolled(), start);
+
+    // Each move is due at its own time after the press, so the stroke lasts steps * interval +
+    // hold whatever the executer's tick: never less, and not more by the lateness of every step
+    // (the Qt scenes' ticks are 10 ms). The next blocking call returns after the release. The
+    // margin upwards is for load.
+    const auto started = std::chrono::steady_clock::now();
+    srv->mouseDrag(list, spix::Point(100, 80), spix::Point(100, 160), 30, std::chrono::milliseconds(16),
+        std::chrono::milliseconds(100));
+    srv->getStringProperty("mainWindow/scrollPosition", "text");
+    const auto took = std::chrono::steady_clock::now() - started;
+    EXPECT_GE(took, std::chrono::milliseconds(580));
+    EXPECT_LT(took, std::chrono::milliseconds(900));
+
+    // Bad arguments and an unknown path are one error each.
+    const int rest = scrolled();
+    srv->mouseDrag(list, spix::Point(100, 180), spix::Point(100, 80), 0, noWait, noWait);
+    srv->mouseDrag(list, spix::Point(100, 180), spix::Point(100, 80), 1, std::chrono::milliseconds(-1), noWait);
+    srv->mouseDrag(list, spix::Point(100, 180), spix::Point(100, 80), 1, noWait, std::chrono::milliseconds(-1));
+    srv->mouseDrag(spix::ItemPath("mainWindow/nope"), spix::Point(1, 1), spix::Point(1, 50), 3, noWait, noWait);
+    EXPECT_EQ(scrolled(), rest);
+    EXPECT_EQ(srv->getErrors().size(), errorsBefore + 4);
+}
+
 int main(int argc, char* argv[])
 {
     auto ui = MainWindow::create();

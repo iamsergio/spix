@@ -60,6 +60,7 @@ slint::slint! {
         // Taller than it shows, to be scrolled by the wheel.
         list := ListView {
             accessible-id: "scroller";
+            mouse-drag-pan-enabled: true;
             x: 200px;
             y: 100px;
             width: 90px;
@@ -203,6 +204,7 @@ fn drive(port: u16) -> Result<(), String> {
     keys(port)?;
     waiting(port)?;
     wheel(port)?;
+    drag(port)?;
     errors(port)?;
     screenshots(port)?;
 
@@ -493,6 +495,105 @@ fn wheel(port: u16) -> Result<(), String> {
     Ok(())
 }
 
+/// One call of the drag over the list: from `from_y` to `to_y` at x 40, in `steps`, `interval` and
+/// `hold` milliseconds apart. The coordinates are sent the way a client may send them, as ints
+/// and as doubles.
+fn drag_call(
+    port: u16,
+    (from_y, to_y): (i32, i32),
+    (steps, interval, hold): (i32, i32, i32),
+) -> Result<Answer, String> {
+    call(
+        port,
+        "mouseDrag",
+        &[
+            path("mainWindow/scroller"),
+            value("<int>40</int>"),
+            value(&format!("<double>{from_y}.0</double>")),
+            value("<double>40.0</double>"),
+            value(&format!("<int>{to_y}</int>")),
+            value(&format!("<int>{steps}</int>")),
+            value(&format!("<int>{interval}</int>")),
+            value(&format!("<int>{hold}</int>")),
+        ],
+    )
+}
+
+/// A drag moves a list's content with the pointer and leaves it where it ends: the hold, longer
+/// than the 100 ms after which Slint's flickable ignores the pointer's velocity, gives it none to
+/// flick on with.
+/// The call answers after the release, and a call it can't play is a fault or an error.
+fn drag(port: u16) -> Result<(), String> {
+    let start = scrolled(port)?;
+
+    let started = Instant::now();
+    drag_call(port, (70, 20), (10, 10, 200))?;
+    assert!(
+        started.elapsed() >= Duration::from_millis(300),
+        "the call returned after {:?}, before the ten intervals and the hold were up",
+        started.elapsed()
+    );
+    let dragged = scrolled(port)? - start;
+    assert!((30..=50).contains(&dragged), "dragged {dragged} of 50");
+    thread::sleep(Duration::from_millis(300));
+    assert_eq!(scrolled(port)? - start, dragged, "the list flicked on");
+
+    drag_call(port, (20, 70), (10, 10, 200))?;
+    let back = scrolled(port)? - start;
+    assert!(back < dragged - 20, "dragging down moves it back: {back}");
+
+    // Each move is due at its own time after the press, so a stroke lasts steps * interval + hold:
+    // never less, and a late timer doesn't add up over the steps. The margin upwards is for load.
+    let started = Instant::now();
+    drag_call(port, (20, 70), (30, 16, 100))?;
+    let took = started.elapsed();
+    assert!(
+        took >= Duration::from_millis(580),
+        "the stroke took {took:?}, less than 30 * 16 ms + 100 ms"
+    );
+    assert!(
+        took < Duration::from_millis(900),
+        "the stroke took {took:?}, it drifts"
+    );
+    let back = scrolled(port)? - start;
+
+    for bad in [(0, 0, 0), (-1, 0, 0), (1, -1, 0), (1, 0, -1)] {
+        assert_eq!(
+            drag_call(port, (70, 20), bad),
+            Err("unsupported".to_owned()),
+            "steps, interval and hold {bad:?}"
+        );
+    }
+    assert_eq!(
+        scrolled(port)? - start,
+        back,
+        "a refused call drags nothing"
+    );
+
+    call(
+        port,
+        "mouseDrag",
+        &[
+            path("mainWindow/nope"),
+            value("<int>0</int>"),
+            value("<int>0</int>"),
+            value("<int>0</int>"),
+            value("<int>20</int>"),
+            value("<int>3</int>"),
+            value("<int>0</int>"),
+            value("<int>0</int>"),
+        ],
+    )?;
+    assert_eq!(
+        call(port, "getErrors", &[])?,
+        Answer::Array(vec![
+            "Wheel: Item not found: mainWindow/nope".to_owned(),
+            "Drag: Item not found: mainWindow/nope".to_owned()
+        ])
+    );
+    Ok(())
+}
+
 /// A screenshot of an element is a PNG of its size and colour, written before the call answers.
 fn screenshots(port: u16) -> Result<(), String> {
     let file = std::env::temp_dir().join(format!("spix_slint_swatch_{}.png", std::process::id()));
@@ -539,6 +640,7 @@ fn errors(port: u16) -> Result<(), String> {
         call(port, "getErrors", &[])?,
         Answer::Array(vec![
             "Wheel: Item not found: mainWindow/nope".to_owned(),
+            "Drag: Item not found: mainWindow/nope".to_owned(),
             "GetProperty: Item not found: mainWindow/nope".to_owned()
         ])
     );
@@ -555,6 +657,7 @@ fn errors(port: u16) -> Result<(), String> {
         call(port, "getErrors", &[])?,
         Answer::Array(vec![
             "Wheel: Item not found: mainWindow/nope".to_owned(),
+            "Drag: Item not found: mainWindow/nope".to_owned(),
             "GetProperty: Item not found: mainWindow/nope".to_owned(),
             "TakeScreenshot: Item not found: mainWindow/nope".to_owned()
         ])

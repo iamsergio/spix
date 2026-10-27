@@ -69,6 +69,18 @@ AnyRpcServer::AnyRpcServer(int anyrpcPort)
             mouseWheel(std::move(path), angleDeltaX, angleDeltaY, steps, std::chrono::milliseconds(intervalMs));
         });
 
+    utils::AddFunctionToAnyRpc<void(std::string, double, double, double, double, int, int, int)>(methodManager,
+        "mouseDrag",
+        "Drag with the left mouse button over the object at the given path, from one point to another (logical "
+        "pixels from its top-left): press, steps moves intervalMs apart, hold still for holdMs, release | "
+        "mouseDrag(string path, float fromX, float fromY, float toX, float toY, int steps, int intervalMs, int "
+        "holdMs)",
+        [this](std::string path, double fromX, double fromY, double toX, double toY, int steps, int intervalMs,
+            int holdMs) {
+            mouseDrag(std::move(path), Point(fromX, fromY), Point(toX, toY), steps,
+                std::chrono::milliseconds(intervalMs), std::chrono::milliseconds(holdMs));
+        });
+
     utils::AddFunctionToAnyRpc<void(std::string)>(methodManager, "mouseBeginDrag",
         "Begin a drag with the mouse | mouseBeginDrag(string path)",
         [this](std::string path) { mouseBeginDrag(std::move(path)); });

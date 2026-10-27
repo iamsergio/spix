@@ -74,6 +74,8 @@ export component MainWindow inherits Window {
     // Taller than it shows, for the mouse wheel to scroll.
     list := ListView {
         accessible-id: "scrollList";
+        // Off by default on a desktop style: the mouse drags the list only when asked to.
+        mouse-drag-pan-enabled: true;
         x: parent.width / 2;
         y: 0px;
         width: parent.width / 2;

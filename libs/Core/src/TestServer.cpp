@@ -21,6 +21,7 @@
 #include <Commands/GetTestStatus.h>
 #include <Commands/InputText.h>
 #include <Commands/InvokeMethod.h>
+#include <Commands/Pointer.h>
 #include <Commands/Quit.h>
 #include <Commands/Screenshot.h>
 #include <Commands/ScreenshotBase64.h>
@@ -115,6 +116,35 @@ void TestServer::mouseWheel(
             m_cmdExec->enqueueCommand<cmd::Wait>(interval);
         m_cmdExec->enqueueCommand<cmd::Wheel>(path, angleDelta);
     }
+}
+
+void TestServer::mouseDrag(
+    ItemPath path, Point from, Point to, int steps, std::chrono::milliseconds interval, std::chrono::milliseconds hold)
+{
+    if (steps < 1 || interval.count() < 0 || hold.count() < 0) {
+        // Reported when the queue gets to it, as every other command error is.
+        m_cmdExec->enqueueCommand<cmd::CustomCmd>(
+            [steps, interval, hold](spix::CommandEnvironment& env) {
+                env.state().reportError("Drag: invalid arguments: steps " + std::to_string(steps) + ", interval "
+                    + std::to_string(interval.count()) + " ms, hold " + std::to_string(hold.count()) + " ms");
+            },
+            []() { return true; });
+        return;
+    }
+
+    using Action = cmd::Pointer::Action;
+    auto stroke = std::make_shared<cmd::Stroke>();
+    m_cmdExec->enqueueCommand<cmd::Pointer>(path, Action::Press, from, stroke);
+    for (int step = 1; step <= steps; ++step) {
+        // Each move waits for its own time after the press, so that a late one doesn't push the
+        // others, and the points come from the whole distance, so that rounding doesn't add up.
+        m_cmdExec->enqueueCommand<cmd::StrokeWait>(stroke, interval * step);
+        const double done = static_cast<double>(step) / steps;
+        const Point at(from.x + (to.x - from.x) * done, from.y + (to.y - from.y) * done);
+        m_cmdExec->enqueueCommand<cmd::Pointer>(path, Action::Move, at, stroke);
+    }
+    m_cmdExec->enqueueCommand<cmd::StrokeWait>(stroke, interval * steps + hold);
+    m_cmdExec->enqueueCommand<cmd::Pointer>(path, Action::Release, to, stroke);
 }
 
 void TestServer::mouseBeginDrag(ItemPath path)
