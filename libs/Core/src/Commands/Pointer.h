@@ -29,7 +29,12 @@ struct Stroke {
 /// `StrokeWait` counts from.
 class Pointer : public Command {
 public:
-    enum class Action { Press, Move, Release };
+    enum class Action
+    {
+        Press,
+        Move,
+        Release
+    };
 
     Pointer(ItemPath path, Action action, Point offset, std::shared_ptr<Stroke> stroke);
 

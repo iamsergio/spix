@@ -118,8 +118,8 @@ void TestServer::mouseWheel(
     }
 }
 
-void TestServer::mouseDrag(ItemPath path, Point from, Point to, int steps, std::chrono::milliseconds interval,
-    std::chrono::milliseconds hold)
+void TestServer::mouseDrag(
+    ItemPath path, Point from, Point to, int steps, std::chrono::milliseconds interval, std::chrono::milliseconds hold)
 {
     if (steps < 1 || interval.count() < 0 || hold.count() < 0) {
         // Reported when the queue gets to it, as every other command error is.
