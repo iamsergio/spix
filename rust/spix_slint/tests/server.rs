@@ -159,7 +159,6 @@ impl Drop for QuitWhenDone {
     }
 }
 
-// INFRA-004
 #[test]
 fn answers_the_calls_of_the_gui_tests_and_quits() -> Result<(), String> {
     // Real time, as the app runs under the tests: timers and the core's events keep working. The
