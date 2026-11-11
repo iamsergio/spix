@@ -10,8 +10,9 @@
 use std::time::Duration;
 
 use gpui_kit::base::test_support::ElementSnapshot;
+use gpui_kit::component::input::InputState;
 use gpui_kit::test::TestWindowExt;
-use gpui_kit::{Bounds, Pixels};
+use gpui_kit::{Bounds, ElementId, Entity, Pixels};
 use spix_server::{
     Backend, Button, Clicks, GuiGone, GuiTask, Modifier, Point, PointerEvent, Rect, WindowImage,
 };
@@ -56,6 +57,32 @@ fn registry_property(snapshot: &ElementSnapshot, name: &str) -> Option<String> {
         "enabled" => Some(truth(!snapshot.disabled().unwrap_or(false))),
         _ => None,
     }
+}
+
+/// The registered input whose path matches the element at `path` (spelled `id`): `None` if there
+/// is none, and `Err` if several match, which is never guessed. The clashing paths go to stderr,
+/// since the server words the error for the property and doesn't know them.
+fn registered_input(path: &[ElementId], id: &[String]) -> Result<Option<Entity<InputState>>, ()> {
+    let mut matching: Vec<_> = gui::inputs()
+        .into_iter()
+        .filter(|(names, _)| {
+            let names: Vec<&str> = names.iter().map(String::as_str).collect();
+            lookup::matches(path, &names)
+        })
+        .collect();
+    if matching.len() > 1 {
+        eprintln!(
+            "spix_gpui: the text of {} matches {} registered inputs: {:?}",
+            id.join("/"),
+            matching.len(),
+            matching
+                .iter()
+                .map(|(names, _)| names.join("/"))
+                .collect::<Vec<_>>()
+        );
+        return Err(());
+    }
+    Ok(matching.pop().map(|(_, state)| state))
 }
 
 impl Backend for GpuiBackend {
@@ -124,10 +151,23 @@ impl Backend for GpuiBackend {
         gui::with_window(window_name, |window, cx| {
             let (id, known) = match item {
                 Item::Window => (vec![window_name.to_owned()], None),
-                Item::Element(path) => (
-                    lookup::spelled(path),
-                    lookup::resolve(window, path).and_then(|found| registry_property(&found, name)),
-                ),
+                Item::Element(path) => {
+                    // The text of a registered input is its value, which the registry doesn't
+                    // expose for a masked one. With several matches, or none, the registry
+                    // answers.
+                    let typed = (name == "text")
+                        .then(|| registered_input(path, &lookup::spelled(path)))
+                        .and_then(Result::ok)
+                        .flatten()
+                        .map(|state| state.read(cx).value().to_string());
+                    (
+                        lookup::spelled(path),
+                        typed.or_else(|| {
+                            lookup::resolve(window, path)
+                                .and_then(|found| registry_property(&found, name))
+                        }),
+                    )
+                }
             };
             known.or_else(|| gui::property_hook().and_then(|hook| hook(cx, &id, name)))
         })?
@@ -142,33 +182,16 @@ impl Backend for GpuiBackend {
             if name == "text"
                 && let Item::Element(path) = item
             {
-                let mut matching: Vec<_> = gui::inputs()
-                    .into_iter()
-                    .filter(|(names, _)| {
-                        let names: Vec<&str> = names.iter().map(String::as_str).collect();
-                        lookup::matches(path, &names)
-                    })
-                    .collect();
-                if matching.len() > 1 {
-                    // Not guessed. The server words the error, which names the property; this
-                    // says which paths clash.
-                    eprintln!(
-                        "spix_gpui: the text of {} matches {} registered inputs: {:?}",
-                        id.join("/"),
-                        matching.len(),
-                        matching
-                            .iter()
-                            .map(|(names, _)| names.join("/"))
-                            .collect::<Vec<_>>()
-                    );
-                    return false;
-                }
-                if let Some((_, state)) = matching.pop() {
-                    state.update(cx, |state, cx| {
-                        state.set_value(value.to_owned(), window, cx);
-                    });
-                    window.render_frame(cx);
-                    return true;
+                match registered_input(path, &id) {
+                    Err(()) => return false,
+                    Ok(Some(state)) => {
+                        state.update(cx, |state, cx| {
+                            state.set_value(value.to_owned(), window, cx);
+                        });
+                        window.render_frame(cx);
+                        return true;
+                    }
+                    Ok(None) => {}
                 }
             }
             gui::set_hook().is_some_and(|hook| hook(window, cx, &id, name, value))

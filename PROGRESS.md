@@ -136,7 +136,8 @@ Spix also drives an app written with GPUI (through `gpui-kit` 0.9.1, which re-ex
   matched as a subsequence of the named segments of an element's full path
 - [x] Properties: `text` (an input's value, else the `aria_label` the app gave), `checked`,
   `enabled`; anything else, and setting a property, through hooks the app registers, and
-  `setStringProperty` of `text` on an input the app registered
+  `setStringProperty` of `text` on an input the app registered; `getStringProperty` of `text` on
+  such an input answers its real value (a masked input's too), through the same path matching
 - [x] Pointer, wheel, keys, typed text and modifiers as GPUI platform events through
   `Window::dispatch_event`, with a click count in the events for a double click
 - [x] The hop onto GPUI's foreground thread (a channel and a `cx.spawn` loop), timers of GPUI's
