@@ -71,13 +71,16 @@ and are found by the same rule, and clicked where they are drawn.
   `text` a test reads. The registry does not record the text a `div` draws. `text` is an input's
   value when the element has one, and its label otherwise.
 - **Register inputs** with `register_input("roomComposer/composerField", entity)`, so that
-  `setStringProperty(path, "text", ...)` can set the value (`InputState::set_value`). The registry
-  can read an input but not write it. The path is a Spix path below the window, as tests spell it,
-  or just the id when it is unique; inputs may share an id in different scopes. An element takes
-  the registered input whose path matches its own by the rule above. With none the call goes to
+  `setStringProperty(path, "text", ...)` can set the value (`InputState::set_value`) and
+  `getStringProperty(path, "text")` read it (`InputState::value`, so a masked input answers its
+  real text; the registry exposes none for it). The registry can't write an input. The path is a
+  Spix path below the window, as tests spell it, or just the id when it is unique; inputs may share
+  an id in different scopes. An element takes the registered input whose path matches its own by
+  the rule above. With none the call goes to
   `on_set_property`; with more than one nothing is set and the call is an error in `getErrors`
   (the generic "not settable" one, as the server words it; the clashing paths go to stderr).
-  Registering a path again replaces its input.
+  Registering a path again replaces its input. Reading `text` with none or several
+  matching inputs answers from the registry.
 - **Answer the rest with hooks**: `checked` (`true`/`false`) and `enabled` come from the registry,
   as the `checked` and `disabled` an element reports. Anything else a test asks for, `count` of a
   list from its model for one, goes to the property hook `on_property`, which gets the path of

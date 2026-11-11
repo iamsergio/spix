@@ -40,6 +40,8 @@ pub struct TestView {
     pub input: Option<Entity<InputState>>,
     /// Two inputs with the same id under different parents.
     pub scoped: Vec<(&'static str, Entity<InputState>)>,
+    /// A masked input, whose value the registry doesn't expose.
+    pub secret: Entity<InputState>,
     pub scroll: VirtualListScrollHandle,
 }
 
@@ -122,6 +124,12 @@ impl Render for TestView {
         if let Some(input) = input {
             root = root.child(Input::new(&input).id("field").w(px(300.)).h(px(32.)));
         }
+        root = root.child(
+            Input::new(&self.secret)
+                .id("secretField")
+                .w(px(300.))
+                .h(px(32.)),
+        );
         for (scope, state) in &self.scoped {
             root = root.child(
                 div()
@@ -234,6 +242,12 @@ pub fn open(cx: &mut App) -> Result<(AnyWindowHandle, Entity<TestView>), String>
             let input = cx.new(|cx| InputState::new(window, cx));
             let room = cx.new(|cx| InputState::new(window, cx));
             let thread = cx.new(|cx| InputState::new(window, cx));
+            let secret = cx.new(|cx| {
+                InputState::new(window, cx)
+                    .placeholder("Secret")
+                    .masked(true)
+            });
+            spix_gpui::register_input("secretField", secret.clone());
             spix_gpui::register_input("roomComposer/composerField", room.clone());
             spix_gpui::register_input("threadPane/composerField", thread.clone());
             let view = cx.new(|cx| {
@@ -254,6 +268,7 @@ pub fn open(cx: &mut App) -> Result<(AnyWindowHandle, Entity<TestView>), String>
                     checked: false,
                     input: Some(input.clone()),
                     scoped: vec![("roomComposer", room), ("threadPane", thread)],
+                    secret,
                     scroll: VirtualListScrollHandle::new(),
                 }
             });

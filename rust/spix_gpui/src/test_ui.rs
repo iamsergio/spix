@@ -177,6 +177,20 @@ async fn typing(backend: &GpuiBackend) -> Result<(), String> {
     expect("the set text", &text(backend, &["field"])?, "set")
 }
 
+/// The text of a masked input is what was set, not its placeholder, and empty while it is.
+fn masked_input(backend: &GpuiBackend) -> Result<(), String> {
+    expect("the empty secret", &text(backend, &["secretField"])?, "")?;
+    let field = item(backend, &["secretField"])?;
+    if !backend.set_property(WINDOW, &field, "text", "hunter2") {
+        return Err("the masked input would not take its text".into());
+    }
+    expect("the secret", &text(backend, &["secretField"])?, "hunter2")?;
+    if !backend.set_property(WINDOW, &field, "text", "") {
+        return Err("the masked input would not be emptied".into());
+    }
+    expect("the emptied secret", &text(backend, &["secretField"])?, "")
+}
+
 /// Two inputs with one own id under two parents are told apart by their paths, and a path that
 /// matches two registered inputs is refused.
 fn scoped_inputs(backend: &GpuiBackend, spare: Entity<InputState>) -> Result<(), String> {
@@ -322,6 +336,7 @@ async fn all(backend: GpuiBackend, spare: Entity<InputState>) -> Result<(), Stri
     lookup_and_properties(&backend)?;
     clicks(&backend).await?;
     typing(&backend).await?;
+    masked_input(&backend)?;
     scoped_inputs(&backend, spare)?;
     wheel_and_drag(&backend)?;
     menu(&backend).await?;
