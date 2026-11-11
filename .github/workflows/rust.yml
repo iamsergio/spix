@@ -16,6 +16,14 @@ jobs:
       matrix:
         # Every crate under rust/. Each is self-contained, so each is built from its own directory.
         crate: [spix_server, spix_slint]
+        include:
+          # GPUI draws on the GPU and talks to X11, so its tests need Vulkan (lavapipe, the CPU
+          # driver of Mesa, as the runner has no GPU), an X server (Xvfb) and the XCB and xkbcommon
+          # libraries it links, and fontconfig, which its font loader builds against.
+          - crate: spix_gpui
+            packages: >-
+              libfontconfig-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-xkb-dev libvulkan1
+              mesa-vulkan-drivers xvfb
     defaults:
       run:
         working-directory: rust/${{ matrix.crate }}
@@ -29,11 +37,11 @@ jobs:
           components: clippy, rustfmt
 
       - name: Install system dependencies
-        # Slint's font handling (fontconfig) and keyboard maps (xkbcommon). The tests run on
+        # Slint's font handling (fontconfig) and keyboard maps (xkbcommon). The Slint tests run on
         # Slint's testing backend, so no display and no X server are needed.
         run: >
           sudo apt-get update && sudo apt-get install -y
-          libfontconfig-dev libxkbcommon-dev
+          ${{ matrix.packages || 'libfontconfig-dev libxkbcommon-dev' }}
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -51,4 +59,12 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Test
+        if: matrix.crate != 'spix_gpui'
         run: cargo test
+
+      - name: Test on Xvfb with lavapipe
+        if: matrix.crate == 'spix_gpui'
+        # The name of lavapipe's ICD file differs between Mesa packagings, so it is looked up.
+        run: |
+          export VK_ICD_FILENAMES="$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -n 1)"
+          xvfb-run -a cargo test

@@ -126,6 +126,68 @@ and `spix_slint`, a backend on top of it with its public API unchanged (`spix_sl
   window is the fallback): `window_image` returns an error string for those, which is what a mock
   renderer already did.
 
+### Phase 7: a GPUI backend
+Goal: `rust/spix_gpui`, a second backend of `spix_server`, so that a GUI test suite written against
+Spix also drives an app written with GPUI (through `gpui-kit` 0.9.1, which re-exports the
+`gpui-pre` 0.3.12 snapshot of GPUI). `spix_server`'s API did not change.
+
+- [x] Lookup in the registry that GPUI Kit's `test-support` feature fills while a frame paints
+  (`.test_support()` on an element with an id; GPUI Kit's components register themselves), a path
+  matched as a subsequence of the named segments of an element's full path
+- [x] Properties: `text` (an input's value, else the `aria_label` the app gave), `checked`,
+  `enabled`; anything else, and setting a property, through hooks the app registers, and
+  `setStringProperty` of `text` on an input the app registered
+- [x] Pointer, wheel, keys, typed text and modifiers as GPUI platform events through
+  `Window::dispatch_event`, with a click count in the events for a double click
+- [x] The hop onto GPUI's foreground thread (a channel and a `cx.spawn` loop), timers of GPUI's
+  executor, `quit` as `App::quit`
+- [x] `takeScreenshot` by a `GetImage` of the window's X id (`x11rb`, no `unsafe`); an error in
+  `getErrors` where there are no pixels (Wayland, the headless platform)
+- [x] Tests: unit tests against a window of their own (a popup menu opened by a right click
+  included), and a socket test of the whole protocol, `quit` included; both pass with a display
+  and without one (the screenshot is then checked for its error)
+- [x] `.github/workflows/rust.yml`: a job for the crate with the system packages it links, run
+  under `xvfb-run` with lavapipe
+
+### Findings of the GPUI backend (Phase 7)
+
+- **The registry is the only lookup that works in a live window.** AccessKit's tree is only built
+  while an assistive technology is connected, and `debug_selector` is not readable from outside
+  GPUI. The registry is thread-local, filled during paint and read on the foreground thread, so
+  the backend draws a frame (`render_frame`) before every search and after every event: what a
+  call reads is the result of the call before it.
+- **The registry is unordered**, so "the first match" is made one: visible matches before
+  invisible ones, then top to bottom and left to right by the corner of the bounds (the order of
+  GPUI Kit's own `find_all`), then the outer element before the one inside it. An item is kept as
+  its full path and read from the registry again for each question, since a list that scrolls
+  moves it. `snapshots()` doesn't carry the semantics of a component's native editor (an input's
+  value), `find_all` does, so a match is resolved through `find_all` by its exact path.
+- **Popups register under a separate root** (`deferred`), with window coordinates like the rest, so
+  they are found by the same rule and clicked at the centre of their frame: no override of the
+  click's geometry was needed, only of its click count.
+- **A virtual list registers the rows it paints.** A row out of view is not found, as with Slint's
+  repeater; the list's row count is something only the app's model knows, so `count` is a hook.
+- **A label has no text in the registry.** Text of a plain `div` is not recorded, so a label a test
+  reads needs `.aria_label(text)` next to `.child(text)`, the duty Slint's `accessible-id` is.
+- **Setting an input's text** can't go through the element: the app keeps the `Entity<InputState>`
+  and registers it under a Spix path below the window. Ids are not unique across scopes, so
+  inputs are matched to the element by the path rule, not by own id; two matches set nothing, and
+  the hooks get the element's spelled path instead of its id for the same reason. The trait has
+  no way to report a custom error, so an ambiguity is the server's generic "not settable" one,
+  with the clashing paths on stderr. `InputState::set_value` emits no change event.
+- **The wheel keeps its sign**: Qt's positive y (towards the start) and GPUI's pixel delta agree,
+  so only the unit changes, 60 pixels to Qt's 120 units, as for Slint.
+- **Screenshots are the weak spot.** `Window::render_to_image` is not implemented for GPUI's Linux
+  windows, so the backend grabs the window from the X server, from the id in the raw window handle
+  (`RawWindowHandle::Xcb`). X11 only, on the display `$DISPLAY` names, 32-bit little-endian pixels.
+  GPUI's headless platform (what `application()` falls back to without a display) has no native
+  handle and draws nothing.
+- **One GPUI app per process**, and it runs wherever `run` is called, a test thread included, so
+  each test binary starts one app and runs its checks in it; a failed check returns its message
+  instead of panicking inside GPUI's executor.
+- **`async fn` with nothing to await** is all the click needs in this trait: the whole gesture is
+  synchronous events, the awaits are the server's.
+
 # Findings and for later
 
 Open questions, limitations and things worth revisiting. Append here when you find something.

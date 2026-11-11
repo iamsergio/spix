@@ -3,7 +3,7 @@
 The toolkit-neutral half of the Spix XML-RPC test server, for GUI toolkits driven from Rust. It
 holds everything that is the protocol in `docs/rpc-api.md` and nothing that is a toolkit; a
 backend crate implements [`Backend`] for its toolkit and calls [`start`]. `spix_slint` is the
-backend for Slint.
+backend for Slint, and `spix_gpui` the one for GPUI.
 
 ```rust
 spix_server::start(MyBackend::new(), 9000)?;
