@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Sergio Martins
+# SPDX-License-Identifier: MIT
+
+# Self-contained: no `workspace = true`, no `[workspace]` table. When this repository is a
+# submodule inside another cargo workspace, the crate becomes a member of it (cargo puts a path
+# dependency of a member that lives inside the workspace directory in it automatically), and it
+# still builds on its own from this repository, where nothing above it is a workspace root.
+[package]
+name = "spix_server"
+description = "The toolkit-neutral half of the Spix XML-RPC test server, for backends written in Rust"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT"
+publish = false
+
+[dependencies]
+png = "0.18.1"
+roxmltree = "0.21.1"
+thiserror = "2.0.21"
+
+# Spelled out rather than inherited from a workspace, so that the crate also builds from this
+# repository alone.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"

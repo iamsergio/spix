@@ -169,7 +169,6 @@ fn only_child<'a, 'input>(
 mod tests {
     use super::*;
 
-    // INFRA-004
     #[test]
     fn decodes_the_calls_the_tests_send() {
         let call = decode_call(
@@ -188,7 +187,6 @@ mod tests {
         );
     }
 
-    // INFRA-004
     #[test]
     fn decodes_the_typed_forms_and_an_untyped_string() {
         let decode = |param: &str| {
@@ -206,7 +204,6 @@ mod tests {
         assert_eq!(decode("<string>x</string>"), Value::String("x".to_owned()));
     }
 
-    // INFRA-004
     #[test]
     fn rejects_what_it_cannot_speak() {
         for xml in [
@@ -219,7 +216,6 @@ mod tests {
         }
     }
 
-    // INFRA-004
     #[test]
     fn encodes_the_answer_shapes_spix_answers_with() {
         assert_eq!(
@@ -240,7 +236,6 @@ mod tests {
         );
     }
 
-    // INFRA-004
     #[test]
     fn encodes_a_fault_the_client_reads() {
         let xml = encode_fault(-32601, "unsupported");

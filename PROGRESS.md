@@ -78,6 +78,54 @@ a Qt app and its Rust Slint port unchanged.
   crate, written before the call answers. A missing path, or a renderer without pixels, goes into
   `getErrors`. `takeScreenshotAsBase64` is not implemented
 
+### Phase 6: a toolkit-neutral Rust server
+Goal: a second Rust backend (another GUI toolkit, perhaps a C library) should reuse everything of
+`spix_slint` that isn't Slint. The crate is split into `rust/spix_server`, which is the protocol,
+and `spix_slint`, a backend on top of it with its public API unchanged (`spix_slint::start` and
+`spix_slint::Error`). No behaviour change.
+
+- [x] `rust/spix_server`: the XML-RPC codec, HTTP listener, faults, `getErrors`, parameters, `wait`,
+  path splitting, the gesture choreography (click, double click, modifiers, wheel, drag) and the
+  screenshot cropping and PNG encoding, behind a `Backend` trait of toolkit primitives
+- [x] `spix_slint` implements `Backend`: element search, properties (and `frameCount`, `truncated`),
+  pointer and key events, a sleep on Slint's timers, `take_snapshot()`, and the click primitive
+  overridden with `single_click`/`double_click` so that popup items are still hit
+- [x] The tests moved with the code: the protocol tests run in `spix_server` over a small fake
+  backend (new ones for the click, modifier, wheel and drag event sequences, and for cropping), the
+  scene and input tests and the socket test stay in `spix_slint`
+- [x] Both crates are self-contained (no `workspace = true`), with the same `[lints]` written out,
+  and `spix_slint` depends on `spix_server` by path
+- [x] `.github/workflows/rust.yml`: format, clippy `-D warnings` and tests of each crate under
+  `rust/`, on 1.98.1
+
+### Findings of the split (Phase 6)
+
+- **The seam is one trait, shared with the listener thread.** `Backend` is `Send + Sync`, so the
+  server keeps the `getErrors` log itself and a backend holds only what is the toolkit's; the
+  thread-bound parts (windows, timers) stay in the backend's own thread-locals, as Slint's did.
+  The one thing that crosses threads is a `GuiTask`: a `Send` closure that makes a non-`Send`
+  future once it is on the GUI thread, which is what a toolkit with its own executor (Slint's
+  `spawn_local`, GPUI's foreground executor) can run.
+- **Item identity is the backend's.** `find` returns an opaque `Item`, and every primitive takes
+  the window name next to it, so a backend can look its window up again and report a window that
+  went away between two events of a gesture. The window itself is the item of a path without
+  segments; the server, not the backend, knows to refuse a click on it.
+- **Positions are window-logical, bounds are screen-logical.** A drag or a wheel turn needs the
+  item's place in the window (`frame`); `getBoundingBox` adds where the window is on the screen
+  (`bounds`); a screenshot crops the frame times the image's scale factor. Slint produced the
+  same three numbers from one geometry function.
+- **The click is a primitive with a default.** A toolkit that can tell where an item stands better
+  than the centre of its frame (an item in a popup, in Slint's case) overrides it; the default
+  presses and releases at the centre. Modifiers are held around it by the server.
+- **`wait`, `quit` and the error log don't need the GUI thread**, and still don't touch it.
+- **Error wording that names the toolkit** (the one for a property that can't be set) comes from a
+  `TOOLKIT` constant of the backend, so the Slint wording is unchanged.
+- **`async fn` in the trait needs `#[allow(async_fn_in_trait)]`**: the futures are deliberately not
+  `Send`, since they only ever run on the GUI thread.
+- **No toolkit-neutral screenshot.** Some toolkits have no in-process pixels (grabbing the X11
+  window is the fallback): `window_image` returns an error string for those, which is what a mock
+  renderer already did.
+
 # Findings and for later
 
 Open questions, limitations and things worth revisiting. Append here when you find something.
