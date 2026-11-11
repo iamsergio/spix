@@ -1,0 +1,54 @@
+name: Rust
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+  workflow_dispatch:
+
+jobs:
+  rust:
+    name: ${{ matrix.crate }}
+    # Pinned, not ubuntu-latest, so that a new image does not change the packages under the job.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every crate under rust/. Each is self-contained, so each is built from its own directory.
+        crate: [spix_server, spix_slint]
+    defaults:
+      run:
+        working-directory: rust/${{ matrix.crate }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: clippy, rustfmt
+
+      - name: Install system dependencies
+        # Slint's font handling (fontconfig) and keyboard maps (xkbcommon). The tests run on
+        # Slint's testing backend, so no display and no X server are needed.
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libfontconfig-dev libxkbcommon-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/${{ matrix.crate }}/target
+          key: rust-${{ matrix.crate }}-${{ runner.os }}-${{ hashFiles(format('rust/{0}/Cargo.toml', matrix.crate), 'rust/spix_server/Cargo.toml') }}
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test
