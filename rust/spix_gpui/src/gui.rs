@@ -8,7 +8,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui_kit::component::input::{InputState, TextareaState};
+use gpui_kit::component::input::{InputState, Position, TextareaState};
 use gpui_kit::{AnyWindowHandle, App, AppContext as _, AsyncApp, Entity, Window};
 use spix_server::GuiTask;
 
@@ -51,6 +51,19 @@ impl Field {
             Self::Textarea(state) => {
                 state.update(cx, |state, cx| {
                     state.set_value(value.to_owned(), window, cx);
+                    // A textarea leaves the cursor at the start; a user who set the text and
+                    // goes on typing, or presses Shift+Enter, does so after it, as in a
+                    // single-line input.
+                    let line = value.matches('\n').count();
+                    let last = value.rsplit('\n').next().unwrap_or_default();
+                    state.set_cursor_position(
+                        Position::new(
+                            u32::try_from(line).unwrap_or(u32::MAX),
+                            u32::try_from(last.encode_utf16().count()).unwrap_or(u32::MAX),
+                        ),
+                        window,
+                        cx,
+                    );
                 });
             }
         }
