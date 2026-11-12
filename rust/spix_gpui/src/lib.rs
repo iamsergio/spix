@@ -25,7 +25,7 @@ extern crate self as spix_gpui;
 #[cfg(test)]
 mod test_ui;
 
-use gpui_kit::component::input::InputState;
+use gpui_kit::component::input::{InputState, TextareaState};
 use gpui_kit::{AnyWindowHandle, App, Entity, Window};
 
 pub use spix_server::Error;
@@ -59,7 +59,12 @@ pub fn start<'a, W: Into<AnyWindowHandle>>(
 /// whose path matches its own by the rule of the paths (see the README); when two do, nothing is
 /// set, and the call is an error in `getErrors`. Registering a path again replaces its input.
 pub fn register_input(path: &str, state: Entity<InputState>) {
-    gui::register_input(path, state);
+    gui::register_input(path, gui::Field::Input(state));
+}
+
+/// As [`register_input`], for a multi-line [`TextareaState`], which is a type of its own.
+pub fn register_textarea(path: &str, state: Entity<TextareaState>) {
+    gui::register_input(path, gui::Field::Textarea(state));
 }
 
 /// Answers properties the registry can't, such as the `count` of a list, which only its model
@@ -67,9 +72,11 @@ pub fn register_input(path: &str, state: Entity<InputState>) {
 /// (the named segments of its registry path from the root down, spelled as a Spix path spells
 /// them, its own id last, so that it can tell same-named elements in different scopes apart; for
 /// the window itself, just the window's name) and the name of the property, and answers `None`
-/// when it has nothing to say. It is asked for `text`, `checked`
-/// and `enabled` only when the registry has no answer. One hook: a second call replaces it.
-pub fn on_property(hook: impl Fn(&mut App, &[String], &str) -> Option<String> + 'static) {
+/// when it has nothing to say. It also gets the window, to read from, for an answer that needs
+/// the registry or the text system (it can't be updated: the call runs inside its update). It is
+/// asked for `text`, `checked` and `enabled` only when the registry has no answer. One hook: a
+/// second call replaces it.
+pub fn on_property(hook: impl Fn(&Window, &mut App, &[String], &str) -> Option<String> + 'static) {
     gui::set_property_hook(std::rc::Rc::new(hook));
 }
 

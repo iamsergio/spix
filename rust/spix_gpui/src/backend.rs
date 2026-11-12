@@ -10,13 +10,13 @@
 use std::time::Duration;
 
 use gpui_kit::base::test_support::ElementSnapshot;
-use gpui_kit::component::input::InputState;
 use gpui_kit::test::TestWindowExt;
-use gpui_kit::{Bounds, ElementId, Entity, Pixels};
+use gpui_kit::{Bounds, ElementId, Pixels};
 use spix_server::{
     Backend, Button, Clicks, GuiGone, GuiTask, Modifier, Point, PointerEvent, Rect, WindowImage,
 };
 
+use crate::gui::Field;
 use crate::lookup::{self, Item};
 use crate::{gui, input, screen};
 
@@ -62,7 +62,7 @@ fn registry_property(snapshot: &ElementSnapshot, name: &str) -> Option<String> {
 /// The registered input whose path matches the element at `path` (spelled `id`): `None` if there
 /// is none, and `Err` if several match, which is never guessed. The clashing paths go to stderr,
 /// since the server words the error for the property and doesn't know them.
-fn registered_input(path: &[ElementId], id: &[String]) -> Result<Option<Entity<InputState>>, ()> {
+fn registered_input(path: &[ElementId], id: &[String]) -> Result<Option<Field>, ()> {
     let mut matching: Vec<_> = gui::inputs()
         .into_iter()
         .filter(|(names, _)| {
@@ -159,7 +159,7 @@ impl Backend for GpuiBackend {
                         .then(|| registered_input(path, &lookup::spelled(path)))
                         .and_then(Result::ok)
                         .flatten()
-                        .map(|state| state.read(cx).value().to_string());
+                        .map(|field| field.value(cx));
                     (
                         lookup::spelled(path),
                         typed.or_else(|| {
@@ -169,7 +169,7 @@ impl Backend for GpuiBackend {
                     )
                 }
             };
-            known.or_else(|| gui::property_hook().and_then(|hook| hook(cx, &id, name)))
+            known.or_else(|| gui::property_hook().and_then(|hook| hook(window, cx, &id, name)))
         })?
     }
 
@@ -184,10 +184,8 @@ impl Backend for GpuiBackend {
             {
                 match registered_input(path, &id) {
                     Err(()) => return false,
-                    Ok(Some(state)) => {
-                        state.update(cx, |state, cx| {
-                            state.set_value(value.to_owned(), window, cx);
-                        });
+                    Ok(Some(field)) => {
+                        field.set_value(value, window, cx);
                         window.render_frame(cx);
                         return true;
                     }

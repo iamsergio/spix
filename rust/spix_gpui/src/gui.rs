@@ -8,12 +8,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui_kit::component::input::InputState;
+use gpui_kit::component::input::{InputState, TextareaState};
 use gpui_kit::{AnyWindowHandle, App, AppContext as _, AsyncApp, Entity, Window};
 use spix_server::GuiTask;
 
-/// Answers a property: the app, the element's spelled path, the property name.
-pub(crate) type PropertyHook = Rc<dyn Fn(&mut App, &[String], &str) -> Option<String>>;
+/// Answers a property: the window (not to be updated: it is in an update), the app, the element's
+/// spelled path, the property name.
+pub(crate) type PropertyHook = Rc<dyn Fn(&Window, &mut App, &[String], &str) -> Option<String>>;
 /// Sets a property: the window, the app, the element's spelled path, the property name, the value.
 pub(crate) type SetHook = Rc<dyn Fn(&mut Window, &mut App, &[String], &str, &str) -> bool>;
 
@@ -22,9 +23,43 @@ struct Gui {
     windows: Vec<(String, AnyWindowHandle)>,
 }
 
+/// A text field an app registered: a single-line input or a multi-line textarea, which are
+/// different types of GPUI Kit's with the same `value` and `set_value`.
+#[derive(Clone)]
+pub(crate) enum Field {
+    Input(Entity<InputState>),
+    Textarea(Entity<TextareaState>),
+}
+
+impl Field {
+    /// What the field holds, a masked one's included.
+    pub(crate) fn value(&self, cx: &App) -> String {
+        match self {
+            Self::Input(state) => state.read(cx).value().to_string(),
+            Self::Textarea(state) => state.read(cx).value().to_string(),
+        }
+    }
+
+    /// Replaces what the field holds.
+    pub(crate) fn set_value(&self, value: &str, window: &mut Window, cx: &mut App) {
+        match self {
+            Self::Input(state) => {
+                state.update(cx, |state, cx| {
+                    state.set_value(value.to_owned(), window, cx);
+                });
+            }
+            Self::Textarea(state) => {
+                state.update(cx, |state, cx| {
+                    state.set_value(value.to_owned(), window, cx);
+                });
+            }
+        }
+    }
+}
+
 thread_local! {
     static GUI: RefCell<Option<Gui>> = const { RefCell::new(None) };
-    static INPUTS: RefCell<Vec<(Vec<String>, Entity<InputState>)>> = const { RefCell::new(Vec::new()) };
+    static INPUTS: RefCell<Vec<(Vec<String>, Field)>> = const { RefCell::new(Vec::new()) };
     static PROPERTY_HOOK: RefCell<Option<PropertyHook>> = const { RefCell::new(None) };
     static SET_HOOK: RefCell<Option<SetHook>> = const { RefCell::new(None) };
 }
@@ -54,7 +89,7 @@ pub(crate) fn attach(
 
 /// Registers `state` under the Spix path `path` (below the window). The same path again replaces
 /// the input registered under it.
-pub(crate) fn register_input(path: &str, state: Entity<InputState>) {
+pub(crate) fn register_input(path: &str, state: Field) {
     let names: Vec<String> = path.split('/').map(str::to_owned).collect();
     INPUTS.with(|inputs| {
         let mut inputs = inputs.borrow_mut();
@@ -66,7 +101,7 @@ pub(crate) fn register_input(path: &str, state: Entity<InputState>) {
 }
 
 /// The registered inputs and the paths they were registered under.
-pub(crate) fn inputs() -> Vec<(Vec<String>, Entity<InputState>)> {
+pub(crate) fn inputs() -> Vec<(Vec<String>, Field)> {
     INPUTS.with(|inputs| inputs.borrow().clone())
 }
 

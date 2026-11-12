@@ -23,13 +23,14 @@ pub fn start<'a, W: Into<AnyWindowHandle>>(
     port: u16, windows: impl IntoIterator<Item = (&'a str, W)>, cx: &mut App,
 ) -> Result<(), Error>;
 pub fn register_input(path: &str, state: Entity<InputState>);
-pub fn on_property(hook: impl Fn(&mut App, &[String], &str) -> Option<String> + 'static);
+pub fn register_textarea(path: &str, state: Entity<TextareaState>);
+pub fn on_property(hook: impl Fn(&Window, &mut App, &[String], &str) -> Option<String> + 'static);
 pub fn on_set_property(
     hook: impl Fn(&mut Window, &mut App, &[String], &str, &str) -> bool + 'static,
 );
 ```
 
-All four are called on GPUI's foreground thread, from the app's setup: what they remember is
+All five are called on GPUI's foreground thread, from the app's setup: what they remember is
 thread-local, since GPUI's handles are not `Send`.
 
 ## Calls answered
@@ -70,7 +71,7 @@ and are found by the same rule, and clicked where they are drawn.
 - **Say what a label says**: `.aria_label(text)` next to `.child(text)` on every element whose
   `text` a test reads. The registry does not record the text a `div` draws. `text` is an input's
   value when the element has one, and its label otherwise.
-- **Register inputs** with `register_input("roomComposer/composerField", entity)`, so that
+- **Register inputs** with `register_input("roomComposer/composerField", entity)` (`register_textarea` for a multi-line `TextareaState`, the same otherwise), so that
   `setStringProperty(path, "text", ...)` can set the value (`InputState::set_value`) and
   `getStringProperty(path, "text")` read it (`InputState::value`, so a masked input answers its
   real text; the registry exposes none for it). The registry can't write an input. The path is a
@@ -88,8 +89,8 @@ and are found by the same rule, and clicked where they are drawn.
   them, its own id last, so an app can match its own scopes; just the window's name for the window)
   and the property, and answers `None` for what it
   doesn't know, which the client reads as the empty string. The hook runs inside an update of the
-  window: it may read entities, not update that window. Setting any property other than an input's
-  `text` goes to `on_set_property`, with the same path; without one, or when it answers `false`, the call is an error
+  window and gets it, to read the registry or shape text with: it may read entities, not update
+  that window. Setting any property other than an input's `text` goes to `on_set_property`, with the same path; without one, or when it answers `false`, the call is an error
   in `getErrors`.
 
 ## Threading

@@ -278,7 +278,7 @@ pub fn open(cx: &mut App) -> Result<(AnyWindowHandle, Entity<TestView>), String>
     )
     .map_err(|error| error.to_string())?;
     spix_gpui::on_property(
-        |_, path, name| match (path.last().map(String::as_str), name) {
+        |_, _, path, name| match (path.last().map(String::as_str), name) {
             (Some("list"), "count") => Some(ROWS.to_string()),
             _ => None,
         },
