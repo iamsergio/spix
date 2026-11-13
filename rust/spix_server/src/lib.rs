@@ -202,6 +202,11 @@ pub trait Backend: Send + Sync + 'static {
     /// Waits `duration` on the GUI thread's own timers, which fire only while its loop runs.
     async fn sleep(&self, duration: Duration);
 
+    /// Lets the toolkit show what it has drawn, before [`window_image`](Self::window_image) reads
+    /// the pixels. For a toolkit that presents a frame only when its event loop runs, after the
+    /// call that changed the window has returned; the default has nothing to wait for.
+    async fn present(&self, _window: &str) {}
+
     /// An image of the whole window, or why there is none (a renderer without pixels, a window
     /// that can't be grabbed).
     ///

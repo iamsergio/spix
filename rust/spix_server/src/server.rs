@@ -224,7 +224,7 @@ impl<B: Backend> Server<B> {
                 Ok(empty())
             }
             "getBoundingBox" => self.bounding_box(params),
-            "takeScreenshot" => self.take_screenshot(params),
+            "takeScreenshot" => self.take_screenshot(params).await,
             "getErrors" => Ok(Value::Array(
                 self.errors().into_iter().map(Value::String).collect(),
             )),
@@ -257,11 +257,12 @@ impl<B: Backend> Server<B> {
     /// Writes a PNG of the item at `path` to `file`, before the call answers so that the caller
     /// can read it at once. A path that isn't there, a backend without pixels or a file that
     /// can't be written goes into `getErrors`.
-    fn take_screenshot(&self, params: &[Value]) -> Result<Value, Fault> {
+    async fn take_screenshot(&self, params: &[Value]) -> Result<Value, Fault> {
         let (path, file) = (string_param(params, 0)?, string_param(params, 1)?);
         if let Some(target) = self.resolve(path, "TakeScreenshot") {
             let written = self
                 .png_of(&target)
+                .await
                 .map_err(|error| error.to_string())
                 .and_then(|png| std::fs::write(file, png).map_err(|error| error.to_string()));
             if let Err(error) = written {
@@ -271,7 +272,8 @@ impl<B: Backend> Server<B> {
         Ok(empty())
     }
 
-    fn png_of(&self, target: &Target<B::Item>) -> Result<Vec<u8>, crop::CropError> {
+    async fn png_of(&self, target: &Target<B::Item>) -> Result<Vec<u8>, crop::CropError> {
+        self.backend.present(&target.window).await;
         let image = self
             .backend
             .window_image(&target.window)
