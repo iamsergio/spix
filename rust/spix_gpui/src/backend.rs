@@ -20,6 +20,11 @@ use crate::gui::Field;
 use crate::lookup::{self, Item};
 use crate::{gui, input, screen};
 
+/// How often `present` looks whether the frame is presented, and how long it waits for that at
+/// most: a window that ticks takes a few milliseconds, one that doesn't would take forever.
+const PRESENT_POLL: Duration = Duration::from_millis(2);
+const PRESENT_GUARD: Duration = Duration::from_secs(5);
+
 /// The tasks go to the foreground thread through this channel, which a loop that [`gui::attach`]
 /// started there drains.
 pub(crate) struct GpuiBackend {
@@ -228,6 +233,40 @@ impl Backend for GpuiBackend {
         };
         let executor = app.background_executor().clone();
         executor.timer(duration).await;
+    }
+
+    /// Draws the frame the last call left and waits until the platform's loop has presented it: a
+    /// draw by itself shows nothing, and the loop presents on its next tick, which the foreground
+    /// thread can't run while it is in here. Without this a screenshot taken as soon as a wait
+    /// saw an element appear is of the window as it was before.
+    ///
+    /// A tick runs the callbacks of `on_next_frame` first and then draws and presents (a draw
+    /// we made leaves the window needing a present, so the tick presents it even if nothing else
+    /// is dirty). A callback registered from inside a callback waits for the tick after, so it
+    /// fires once the first tick's present is done. The guard is only for a window that never
+    /// ticks (minimised, occluded).
+    async fn present(&self, window: &str) {
+        let (done, finished) = async_channel::bounded::<()>(1);
+        let asked = gui::with_window(window, |window, cx| {
+            window.render_frame(cx);
+            window.on_next_frame(move |window, _| {
+                window.on_next_frame(move |_, _| {
+                    let _ = done.try_send(());
+                });
+            });
+        });
+        if asked.is_none() {
+            return;
+        }
+        let mut waited = Duration::ZERO;
+        while finished.try_recv().is_err() {
+            if waited >= PRESENT_GUARD {
+                eprintln!("spix_gpui: no frame was presented within {PRESENT_GUARD:?}");
+                return;
+            }
+            self.sleep(PRESENT_POLL).await;
+            waited += PRESENT_POLL;
+        }
     }
 
     fn window_image(&self, window: &str) -> Result<WindowImage, String> {
